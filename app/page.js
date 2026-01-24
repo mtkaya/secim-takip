@@ -1,5 +1,22 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, onValue, set, remove } from 'firebase/database';
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyARq30LxvQk8VOPrXMVicUimAaaj-ZlVYk",
+  authDomain: "secim-takip-ea62d.firebaseapp.com",
+  databaseURL: "https://secim-takip-ea62d-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "secim-takip-ea62d",
+  storageBucket: "secim-takip-ea62d.firebasestorage.app",
+  messagingSenderId: "391370672742",
+  appId: "1:391370672742:web:8a81debac198a7cfd87ba7"
+};
+
+// Firebase Initialize
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
 
 // ===== YAPILANDIRMA =====
 const KULLANICILAR = {
@@ -32,15 +49,21 @@ export default function SecimTakipSistemi() {
   
   const [aramaText, setAramaText] = useState('');
   const [filtre, setFiltre] = useState('hepsi');
-  const [geldiDurumu, setGeldiDurumu] = useState({}); // { kisiId: { geldi: true, isaretleyen: "İsim", saat: "14:30" } }
+  const [geldiDurumu, setGeldiDurumu] = useState({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [seciliGoruntuRol, setSeciliGoruntuRol] = useState('');
 
+  // Firebase'den veri dinle (realtime)
   useEffect(() => {
-    const saved = localStorage.getItem('secim-geldi-2026-v4');
-    if (saved) setGeldiDurumu(JSON.parse(saved));
-    
+    const geldiRef = ref(database, 'geldi');
+    const unsubscribe = onValue(geldiRef, (snapshot) => {
+      const data = snapshot.val();
+      setGeldiDurumu(data || {});
+      setLoading(false);
+    });
+
+    // Oturum kontrolü
     const oturum = localStorage.getItem('secim-oturum-2026-v2');
     if (oturum) {
       const o = JSON.parse(oturum);
@@ -48,12 +71,9 @@ export default function SecimTakipSistemi() {
       setKullaniciAdi(o.ad);
       setGirisYapildi(true);
     }
-    setLoading(false);
-  }, []);
 
-  useEffect(() => {
-    if (!loading) localStorage.setItem('secim-geldi-2026-v4', JSON.stringify(geldiDurumu));
-  }, [geldiDurumu, loading]);
+    return () => unsubscribe();
+  }, []);
 
   const girisYap = () => {
     setGirisHatasi('');
@@ -97,33 +117,27 @@ export default function SecimTakipSistemi() {
     setGirisTipi('referans');
   };
 
-  const toggleGeldi = (kisiId) => {
+  const toggleGeldi = async (kisiId) => {
     const mevcutDurum = geldiDurumu[kisiId];
     
     if (mevcutDurum && mevcutDurum.geldi) {
       // İşareti kaldır
-      const yeniDurum = { ...geldiDurumu };
-      delete yeniDurum[kisiId];
-      setGeldiDurumu(yeniDurum);
+      await remove(ref(database, 'geldi/' + kisiId));
     } else {
-      // İşaretle - kim işaretlediğini ve saati kaydet
+      // İşaretle
       const simdi = new Date();
       const saat = simdi.getHours().toString().padStart(2,'0') + ':' + simdi.getMinutes().toString().padStart(2,'0');
       
-      setGeldiDurumu(prev => ({
-        ...prev,
-        [kisiId]: {
-          geldi: true,
-          isaretleyen: kullaniciAdi,
-          saat: saat
-        }
-      }));
+      await set(ref(database, 'geldi/' + kisiId), {
+        geldi: true,
+        isaretleyen: kullaniciAdi,
+        saat: saat
+      });
     }
   };
 
-  const resetAll = () => {
-    setGeldiDurumu({});
-    localStorage.removeItem('secim-geldi-2026-v4');
+  const resetAll = async () => {
+    await remove(ref(database, 'geldi'));
   };
 
   const filtrelenmisKisiler = useMemo(() => {
@@ -307,7 +321,7 @@ export default function SecimTakipSistemi() {
         
         {genelIstatistik && (
           <div className="card" style={{padding:'16px',marginBottom:'14px',background:'rgba(255,193,7,0.05)',borderColor:'rgba(255,193,7,0.2)'}}>
-            <div style={{color:'#ffc107',fontWeight:600,marginBottom:'10px',fontSize:'0.9rem'}}>📊 Genel Durum</div>
+            <div style={{color:'#ffc107',fontWeight:600,marginBottom:'10px',fontSize:'0.9rem'}}>📊 Genel Durum (Anlık)</div>
             <div style={{display:'flex',justifyContent:'space-around',textAlign:'center'}}>
               <div><div style={{color:'#00d9ff',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.toplam}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Toplam</div></div>
               <div><div style={{color:'#00c853',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Geldi</div></div>
