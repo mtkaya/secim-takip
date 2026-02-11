@@ -148,6 +148,16 @@ export default function SecimTakipSistemi() {
     return { toplam: rol.referans_sayisi, aranan, gelemez, yuzde: rol.referans_sayisi > 0 ? Math.round(aranan / rol.referans_sayisi * 100) : 0 };
   }, [kullaniciAdi, geldiData, gelemezData]);
 
+  // Sandık oranları
+  const sandikOranlari = useMemo(() => {
+    return SECIM_DATA.sandiklar.map(s => {
+      const geldi = s.kisiler.filter(k => geldiData[makeKey(k)]).length;
+      const gelemez = s.kisiler.filter(k => gelemezData[makeKey(k)]).length;
+      const yuzde = s.referans_sayisi > 0 ? Math.round(geldi / s.referans_sayisi * 100) : 0;
+      return { ad: s.ad, toplam: s.referans_sayisi, geldi, gelemez, yuzde };
+    });
+  }, [geldiData, gelemezData]);
+
   // Rapor (sadece admin)
   const raporData = useMemo(() => {
     return SECIM_DATA.roller.map(r => {
@@ -314,7 +324,7 @@ export default function SecimTakipSistemi() {
       const yuzde = r.toplam > 0 ? Math.round(r.aranan / r.toplam * 100) : 0;
       s.push({ ad: r.ad, label: r.ad + ' (' + r.toplam + ') - ' + r.aranan + '/' + r.toplam + ' geldi %' + yuzde + (r.gelemez > 0 ? ' | ' + r.gelemez + ' gelemez' : ''), grup: 'referans' });
     });
-    SECIM_DATA.sandiklar.forEach(x => { s.push({ ad: x.ad, label: x.ad + ' (' + x.referans_sayisi + ' kişi)', grup: 'sandik' }); });
+    sandikOranlari.forEach(x => { s.push({ ad: x.ad, label: x.ad + ' (' + x.geldi + '/' + x.toplam + ' oy kullandı %' + x.yuzde + ')', grup: 'sandik' }); });
     s.push({ ad: 'REFERANSLI', label: 'REFERANSLI (' + SECIM_DATA.referansli.referans_sayisi + ' kişi)', grup: 'ozel' });
     s.push({ ad: 'REFERANSSIZ', label: 'REFERANSSIZ (' + SECIM_DATA.referanssiz.referans_sayisi + ' kişi)', grup: 'ozel' });
     s.push({ ad: 'ÇAKIŞANLAR', label: 'ÇAKIŞANLAR (' + SECIM_DATA.cakisanlar.referans_sayisi + ' kişi)', grup: 'ozel' });
@@ -374,7 +384,7 @@ export default function SecimTakipSistemi() {
           <div style={{marginBottom:'16px'}}>
             <select value={seciliSandik} onChange={e => setSeciliSandik(e.target.value)}>
               <option value="">-- Sandık Seçin --</option>
-              {SECIM_DATA.sandiklar.map(s => <option key={s.ad} value={s.ad}>{s.ad} ({s.referans_sayisi} kişi)</option>)}
+              {sandikOranlari.map(s => <option key={s.ad} value={s.ad}>{s.ad} ({s.geldi}/{s.toplam} oy kullandı %{s.yuzde})</option>)}
             </select>
           </div>
         )}
