@@ -148,6 +148,24 @@ export default function SecimTakipSistemi() {
     return { toplam: rol.referans_sayisi, aranan, gelemez, yuzde: rol.referans_sayisi > 0 ? Math.round(aranan / rol.referans_sayisi * 100) : 0 };
   }, [kullaniciAdi, geldiData, gelemezData]);
 
+  // Genel istatistikler (tüm üyelerin gelme yüzdesi - admin için)
+  const genelIstatistik = useMemo(() => {
+    // Sandıklar üzerinden hesapla (unique kişiler)
+    let toplamKisi = 0;
+    let toplamGeldi = 0;
+    let toplamGelemez = 0;
+    SECIM_DATA.sandiklar.forEach(s => {
+      s.kisiler.forEach(k => {
+        toplamKisi++;
+        if (geldiData[makeKey(k)]) toplamGeldi++;
+        else if (gelemezData[makeKey(k)]) toplamGelemez++;
+      });
+    });
+    const bekleyen = toplamKisi - toplamGeldi - toplamGelemez;
+    const yuzde = toplamKisi > 0 ? Math.round(toplamGeldi / toplamKisi * 100) : 0;
+    return { toplamKisi, toplamGeldi, toplamGelemez, bekleyen, yuzde };
+  }, [geldiData, gelemezData]);
+
   // Sandık oranları
   const sandikOranlari = useMemo(() => {
     return SECIM_DATA.sandiklar.map(s => {
@@ -355,6 +373,39 @@ export default function SecimTakipSistemi() {
       </div>
 
       <div style={{maxWidth:'700px',margin:'0 auto',padding:'16px'}}>
+
+        {/* Genel gelme yüzdesi (admin/superadmin) */}
+        {isAdmin && (
+          <div className="card" style={{padding:'16px',marginBottom:'16px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+              <svg width="90" height="90" viewBox="0 0 100 100">
+                {(() => {
+                  const r = 38, cx = 50, cy = 50, c = 2 * Math.PI * r;
+                  const pG = genelIstatistik.toplamKisi > 0 ? genelIstatistik.toplamGeldi / genelIstatistik.toplamKisi : 0;
+                  const pE = genelIstatistik.toplamKisi > 0 ? genelIstatistik.toplamGelemez / genelIstatistik.toplamKisi : 0;
+                  const pB = genelIstatistik.toplamKisi > 0 ? genelIstatistik.bekleyen / genelIstatistik.toplamKisi : 0;
+                  return (<>
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e8e8e8" strokeWidth="14"/>
+                    {pB > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ffb74d" strokeWidth="14" strokeDasharray={`${pB*c} ${c}`} strokeDashoffset={-(pG+pE)*c} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    {pE > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ff5252" strokeWidth="14" strokeDasharray={`${pE*c} ${c}`} strokeDashoffset={-pG*c} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    {pG > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#00c853" strokeWidth="14" strokeDasharray={`${pG*c} ${c}`} strokeDashoffset={0} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    <text x={cx} y={cy-2} textAnchor="middle" fontSize="20" fontWeight="800" fill="#333">%{genelIstatistik.yuzde}</text>
+                    <text x={cx} y={cy+12} textAnchor="middle" fontSize="7" fill="#999">GENEL</text>
+                  </>);
+                })()}
+              </svg>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,color:'#333',fontSize:'1rem',marginBottom:'8px'}}>📊 Tüm Üyeler</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px'}}><div style={{width:10,height:10,borderRadius:3,background:'#00c853'}}/><span style={{color:'#333',fontSize:'0.8rem'}}>Geldi: <b>{genelIstatistik.toplamGeldi}</b></span></div>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px'}}><div style={{width:10,height:10,borderRadius:3,background:'#ff5252'}}/><span style={{color:'#333',fontSize:'0.8rem'}}>Gelemez: <b>{genelIstatistik.toplamGelemez}</b></span></div>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px'}}><div style={{width:10,height:10,borderRadius:3,background:'#ffb74d'}}/><span style={{color:'#333',fontSize:'0.8rem'}}>Bekleyen: <b>{genelIstatistik.bekleyen}</b></span></div>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{color:'#999',fontSize:'0.8rem'}}>Toplam: <b>{genelIstatistik.toplamKisi}</b></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Kendi referans oranı (herkes) */}
         {kendiOran && !isSpecialUser && (
