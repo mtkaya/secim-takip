@@ -204,28 +204,49 @@ export default function SecimTakipSistemi() {
 
   // -- GİRİŞ EKRANI --
   if (!girisYapildi) {
+    const rolSecenekleri = [
+      { key: 'superadmin', label: 'Süper Admin', icon: '🔑', renk: '#7b1fa2', bg: 'rgba(156,39,176,0.08)', border: 'rgba(156,39,176,0.3)' },
+      { key: 'admin', label: 'Admin', icon: '⚙️', renk: '#e65100', bg: 'rgba(255,152,0,0.08)', border: 'rgba(255,152,0,0.3)' },
+      { key: 'moderator', label: 'Moderatör', icon: '🛡️', renk: '#00796b', bg: 'rgba(0,150,136,0.08)', border: 'rgba(0,150,136,0.3)' },
+      { key: 'referans', label: 'Referans', icon: '👤', renk: '#1565c0', bg: 'rgba(33,150,243,0.08)', border: 'rgba(33,150,243,0.3)' },
+    ];
+    const seciliRol = rolSecenekleri.find(r => r.key === girisTipi);
     return (
       <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f0f2f5 0%,#e8edf2 50%,#dce3ea 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',fontFamily:'system-ui,-apple-system,sans-serif'}}>
-        <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:'16px',padding:'32px',maxWidth:'380px',width:'100%',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
-          <style>{`*{box-sizing:border-box}select,input{background:#f8f9fa;border:1px solid #dee2e6;color:#333;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select option{background:#fff}select:focus,input:focus{border-color:#e94560}.btn-login{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;cursor:pointer;width:100%;font-size:1rem}.btn-login:active{transform:scale(0.98)}`}</style>
+        <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'100%',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
+          <style>{`*{box-sizing:border-box}input{background:#f8f9fa;border:1px solid #dee2e6;color:#333;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}input:focus{border-color:#e94560}.btn-login{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;cursor:pointer;width:100%;font-size:1rem}.btn-login:active{transform:scale(0.98)}`}</style>
           <div style={{textAlign:'center',marginBottom:'24px'}}>
             <Logo size="large" />
             <h2 style={{color:'#333',margin:'12px 0 8px',fontSize:'1.1rem',fontWeight:'500'}}>Hoş Geldiniz</h2>
             <p style={{color:'#e94560',margin:0,fontSize:'0.95rem',fontWeight:'600'}}>🗳️ Seçim Takip Asistanı</p>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-            <select value={girisTipi} onChange={e => { setGirisTipi(e.target.value); setGirisHatasi(''); }}>
-              <option value="">-- Rol Seçin --</option>
-              <option value="superadmin">🔑 Süper Admin</option>
-              <option value="admin">⚙️ Admin</option>
-              <option value="moderator">🛡️ Moderatör</option>
-              <option value="referans">👤 Referans Sorumlusu</option>
-            </select>
-            <input type="text" placeholder="Ad Soyad" value={girisAdi} onChange={e => { setGirisAdi(e.target.value.toUpperCase()); setGirisHatasi(''); }} style={{textTransform:'uppercase'}} />
-            <input type="password" placeholder="Şifre (telefon son 6 hane)" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && girisYap()} />
+          {/* Rol butonları */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'16px'}}>
+            {rolSecenekleri.map(r => (
+              <button key={r.key} onClick={() => { setGirisTipi(r.key); setGirisHatasi(''); }} style={{
+                background: girisTipi === r.key ? r.bg : '#f8f9fa',
+                border: `2px solid ${girisTipi === r.key ? r.border : '#e0e0e0'}`,
+                borderRadius: '12px', padding: '12px 4px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                transition: 'all 0.2s'
+              }}>
+                <span style={{fontSize:'1.3rem'}}>{r.icon}</span>
+                <span style={{fontSize:'0.7rem',fontWeight:600,color: girisTipi === r.key ? r.renk : '#999'}}>{r.label}</span>
+              </button>
+            ))}
           </div>
+          {/* İsim ve şifre alanları (rol seçildikten sonra) */}
+          {girisTipi && (
+            <div style={{display:'flex',flexDirection:'column',gap:'12px',animation:'fadeIn 0.2s ease'}}>
+              <div style={{textAlign:'center',marginBottom:'4px'}}>
+                <span style={{fontSize:'0.85rem',color: seciliRol?.renk || '#666',fontWeight:600}}>{seciliRol?.icon} {seciliRol?.label} olarak giriş</span>
+              </div>
+              <input type="text" placeholder="Ad Soyad" value={girisAdi} onChange={e => { setGirisAdi(e.target.value.toUpperCase()); setGirisHatasi(''); }} style={{textTransform:'uppercase'}} autoFocus />
+              <input type="password" placeholder="Şifre (telefon son 6 hane)" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && girisYap()} />
+            </div>
+          )}
           {girisHatasi && <div style={{background:'rgba(233,69,96,0.1)',border:'1px solid rgba(233,69,96,0.3)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#e94560',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
-          <button className="btn-login" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>
+          {girisTipi && <button className="btn-login" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>}
         </div>
       </div>
     );
