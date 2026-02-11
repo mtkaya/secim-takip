@@ -546,10 +546,6 @@ export default function SecimTakipSistemi() {
           const rowClass = geldi ? 'row geldi' : gelemez ? 'row gelemez' : 'row';
           return (
             <div key={key + '_' + idx} className={rowClass}>
-              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                <div className={`check ${geldi ? 'geldi' : ''}`} onClick={() => toggleGeldi(kisi)} title="Geldi">{geldi ? '✓' : '👍'}</div>
-                <div className={`check ${gelemez ? 'gelemez' : ''}`} onClick={() => toggleGelemez(kisi)} title="Gelemeyecek" style={{width:'36px',height:'28px',minWidth:'36px',fontSize:'0.75rem'}}>{gelemez ? '✗' : '👎'}</div>
-              </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{color:'#333',fontWeight:500,fontSize:'0.95rem'}}>
                   {kisi.ad}
@@ -563,6 +559,10 @@ export default function SecimTakipSistemi() {
                 {telLink && (
                   <a href={'tel:' + telLink} className={`btn-call ${geldi || gelemez ? 'disabled' : ''}`} style={{marginTop:'4px'}}>📞 {kisi.tel}</a>
                 )}
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <div className={`check ${geldi ? 'geldi' : ''}`} onClick={() => toggleGeldi(kisi)} title="Geldi">{geldi ? '✓' : '👍'}</div>
+                <div className={`check ${gelemez ? 'gelemez' : ''}`} onClick={() => toggleGelemez(kisi)} title="Gelemeyecek" style={{width:'36px',height:'28px',minWidth:'36px',fontSize:'0.75rem'}}>{gelemez ? '✗' : '👎'}</div>
               </div>
             </div>
           );
