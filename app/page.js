@@ -112,7 +112,7 @@ export default function SecimTakipSistemi() {
 
   const filtrelenmisKisiler = useMemo(() => {
     let kisiler = [];
-    if (kullaniciRolu === 'admin' || kullaniciRolu === 'moderator') {
+    if (kullaniciRolu === 'superadmin' || kullaniciRolu === 'admin' || kullaniciRolu === 'moderator') {
       if (seciliGoruntuRol) kisiler = SECIM_DATA.kisiler.filter(k => k.referanslar.includes(seciliGoruntuRol));
       else kisiler = SECIM_DATA.kisiler.filter(k => k.referanslar.length > 0);
     } else {
@@ -129,7 +129,7 @@ export default function SecimTakipSistemi() {
 
   const istatistikler = useMemo(() => {
     let tumKisiler = [];
-    if (kullaniciRolu === 'admin' || kullaniciRolu === 'moderator') {
+    if (kullaniciRolu === 'superadmin' || kullaniciRolu === 'admin' || kullaniciRolu === 'moderator') {
       if (seciliGoruntuRol) tumKisiler = SECIM_DATA.kisiler.filter(k => k.referanslar.includes(seciliGoruntuRol));
       else tumKisiler = SECIM_DATA.kisiler.filter(k => k.referanslar.length > 0);
     } else {
@@ -140,7 +140,7 @@ export default function SecimTakipSistemi() {
   }, [kullaniciRolu, kullaniciAdi, seciliGoruntuRol, geldiDurumu]);
 
   const genelIstatistik = useMemo(() => {
-    if (kullaniciRolu !== 'admin' && kullaniciRolu !== 'moderator') return null;
+    if (kullaniciRolu !== 'superadmin' && kullaniciRolu !== 'admin' && kullaniciRolu !== 'moderator') return null;
     const tumReferanslilar = SECIM_DATA.kisiler.filter(k => k.referanslar.length > 0);
     const gelen = tumReferanslilar.filter(k => geldiDurumu[k.id]?.geldi).length;
     return { toplam: tumReferanslilar.length, gelen, gelmeyen: tumReferanslilar.length - gelen };
@@ -159,7 +159,7 @@ export default function SecimTakipSistemi() {
 
 
   const havuzListe = useMemo(() => {
-    if (kullaniciRolu !== 'admin' && kullaniciRolu !== 'moderator') return [];
+    if (kullaniciRolu !== 'superadmin' && kullaniciRolu !== 'admin' && kullaniciRolu !== 'moderator') return [];
     const aranmayanlar = SECIM_DATA.kisiler.filter(k => k.referanslar.length > 0 && !geldiDurumu[k.id]?.geldi);
     const referansGruplari = {};
     aranmayanlar.forEach(k => {
@@ -208,7 +208,7 @@ export default function SecimTakipSistemi() {
             <Logo />
             <div>
               <div style={{color:'#fff',fontWeight:600,fontSize:'0.95rem'}}>{kullaniciAdi}</div>
-              <span className="badge" style={{background:kullaniciRolu==='admin'?'rgba(255,193,7,0.2)':kullaniciRolu==='moderator'?'rgba(0,217,255,0.2)':'rgba(0,200,83,0.2)',color:kullaniciRolu==='admin'?'#ffc107':kullaniciRolu==='moderator'?'#00d9ff':'#00c853'}}>{kullaniciRolu==='admin'?'⚙️ Admin':kullaniciRolu==='moderator'?'🛡️ Moderatör':'👤 Referans'}</span>
+              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(255,0,0,0.2)':kullaniciRolu==='admin'?'rgba(255,193,7,0.2)':kullaniciRolu==='moderator'?'rgba(0,217,255,0.2)':'rgba(0,200,83,0.2)',color:kullaniciRolu==='superadmin'?'#ff4444':kullaniciRolu==='admin'?'#ffc107':kullaniciRolu==='moderator'?'#00d9ff':'#00c853'}}>{kullaniciRolu==='superadmin'?'🔑 Süper Admin':kullaniciRolu==='admin'?'⚙️ Admin':kullaniciRolu==='moderator'?'🛡️ Moderatör':'👤 Referans'}</span>
             </div>
           </div>
           <button onClick={cikisYap} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',color:'#fff',padding:'8px 14px',borderRadius:'8px',cursor:'pointer',fontSize:'0.85rem'}}>Çıkış</button>
@@ -218,9 +218,9 @@ export default function SecimTakipSistemi() {
       <div style={{maxWidth:'700px',margin:'0 auto',padding:'14px'}}>
         {genelIstatistik && (<div className="card" style={{padding:'16px',marginBottom:'14px',background:'rgba(255,193,7,0.05)',borderColor:'rgba(255,193,7,0.2)'}}><div style={{color:'#ffc107',fontWeight:600,marginBottom:'10px',fontSize:'0.9rem'}}>📊 Genel Durum (Anlık)</div><div style={{display:'flex',justifyContent:'space-around',textAlign:'center'}}><div><div style={{color:'#00d9ff',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.toplam}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Toplam</div></div><div><div style={{color:'#00c853',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Geldi</div></div><div><div style={{color:'#e94560',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelmeyen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Beklenen</div></div><div><div style={{color:'#ffc107',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>%{genelIstatistik.toplam?Math.round(genelIstatistik.gelen/genelIstatistik.toplam*100):0}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Oran</div></div></div></div>)}
 
-        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>📋 Referans Sorumlusu Filtrele</label><select value={seciliGoruntuRol} onChange={e=>setSeciliGoruntuRol(e.target.value)}><option value="">-- Tüm Referanslar --</option>{SECIM_DATA.roller.map(r=>(<option key={r.ad} value={r.ad}>{r.ad} ({r.referans_sayisi} kişi) - {referansAramaOranlari[r.ad]?.gelen || 0}/{referansAramaOranlari[r.ad]?.toplam || 0} arandı</option>))}</select></div>)}
+        {(kullaniciRolu==='superadmin'||kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>📋 Referans Sorumlusu Filtrele</label><select value={seciliGoruntuRol} onChange={e=>setSeciliGoruntuRol(e.target.value)}><option value="">-- Tüm Referanslar --</option>{SECIM_DATA.roller.map(r=>(<option key={r.ad} value={r.ad}>{r.ad} ({r.referans_sayisi} kişi) - {referansAramaOranlari[r.ad]?.gelen || 0}/{referansAramaOranlari[r.ad]?.toplam || 0} arandı</option>))}</select></div>)}
 
-        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={()=>setHavuzListeGoster(!havuzListeGoster)}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span style={{color:'#e94560',fontWeight:600,fontSize:'0.9rem'}}>🏊 Havuz Liste</span><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>(Aranmayan kişiler - referans bazlı)</span></div><span style={{color:'rgba(255,255,255,0.5)',fontSize:'1.2rem'}}>{havuzListeGoster?'▲':'▼'}</span></div>{havuzListeGoster && (<div style={{marginTop:'14px'}}>{havuzListe.map(([refAd, kisiler]) => (<div key={refAd} style={{marginBottom:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',padding:'8px 12px',background:'rgba(233,69,96,0.1)',borderRadius:'8px',border:'1px solid rgba(233,69,96,0.2)'}}><span style={{color:'#ff6b6b',fontWeight:600,fontSize:'0.9rem'}}>{refAd}</span><span style={{color:'#e94560',fontSize:'0.8rem',fontWeight:600}}>{kisiler.length} kişi aranmadı</span></div>{kisiler.map(k=>(<div key={k.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',marginBottom:'4px',background:'rgba(255,255,255,0.02)',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.05)'}}><div style={{flex:1,minWidth:0}}><div style={{color:'#fff',fontWeight:500,fontSize:'0.85rem'}}>{k.ad}</div><div style={{color:'rgba(255,255,255,0.4)',fontSize:'0.75rem'}}>#{k.sicil} • {k.telefon!=='Telefon Yok'?k.telefon:'📵 Tel yok'}</div></div>{k.telefon!=='Telefon Yok'?(<a href={`tel:${k.telefon}`} className="btn-call" style={{fontSize:'0.75rem',padding:'5px 10px'}}>📞 Ara</a>):(<span className="btn-call disabled" style={{fontSize:'0.75rem',padding:'5px 10px'}}>Tel Yok</span>)}</div>))}</div>))}{havuzListe.length===0&&(<div style={{textAlign:'center',padding:'20px',color:'rgba(255,255,255,0.5)'}}>Tüm kişiler aranmış! 🎉</div>)}</div>)}</div>)}
+        {(kullaniciRolu==='superadmin'||kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={()=>setHavuzListeGoster(!havuzListeGoster)}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span style={{color:'#e94560',fontWeight:600,fontSize:'0.9rem'}}>🏊 Havuz Liste</span><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>(Aranmayan kişiler - referans bazlı)</span></div><span style={{color:'rgba(255,255,255,0.5)',fontSize:'1.2rem'}}>{havuzListeGoster?'▲':'▼'}</span></div>{havuzListeGoster && (<div style={{marginTop:'14px'}}>{havuzListe.map(([refAd, kisiler]) => (<div key={refAd} style={{marginBottom:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',padding:'8px 12px',background:'rgba(233,69,96,0.1)',borderRadius:'8px',border:'1px solid rgba(233,69,96,0.2)'}}><span style={{color:'#ff6b6b',fontWeight:600,fontSize:'0.9rem'}}>{refAd}</span><span style={{color:'#e94560',fontSize:'0.8rem',fontWeight:600}}>{kisiler.length} kişi aranmadı</span></div>{kisiler.map(k=>(<div key={k.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',marginBottom:'4px',background:'rgba(255,255,255,0.02)',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.05)'}}><div style={{flex:1,minWidth:0}}><div style={{color:'#fff',fontWeight:500,fontSize:'0.85rem'}}>{k.ad}</div><div style={{color:'rgba(255,255,255,0.4)',fontSize:'0.75rem'}}>#{k.sicil} • {k.telefon!=='Telefon Yok'?k.telefon:'📵 Tel yok'}</div></div>{k.telefon!=='Telefon Yok'?(<a href={`tel:${k.telefon}`} className="btn-call" style={{fontSize:'0.75rem',padding:'5px 10px'}}>📞 Ara</a>):(<span className="btn-call disabled" style={{fontSize:'0.75rem',padding:'5px 10px'}}>Tel Yok</span>)}</div>))}</div>))}{havuzListe.length===0&&(<div style={{textAlign:'center',padding:'20px',color:'rgba(255,255,255,0.5)'}}>Tüm kişiler aranmış! 🎉</div>)}</div>)}</div>)}
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'14px'}}>
           <div className="stat"><b style={{color:'#00d9ff'}}>{istatistikler.toplam}</b><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.7rem'}}>Toplam</div></div>
@@ -246,7 +246,7 @@ export default function SecimTakipSistemi() {
         <div className="card" style={{padding:'14px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
             <span style={{color:'#fff',fontWeight:600}}>📋 {filtrelenmisKisiler.length} kişi</span>
-            {kullaniciRolu==='admin' && (<button className="btn" style={{padding:'6px 12px',fontSize:'0.8rem'}} onClick={()=>setShowResetConfirm(true)}>🔄 Sıfırla</button>)}
+            {kullaniciRolu==='superadmin' && (<button className="btn" style={{padding:'6px 12px',fontSize:'0.8rem'}} onClick={()=>setShowResetConfirm(true)}>🔄 Sıfırla</button>)}
           </div>
 
           {filtrelenmisKisiler.length===0?(<div style={{textAlign:'center',padding:'30px',color:'rgba(255,255,255,0.5)'}}>{aramaText?'Sonuç bulunamadı':'Liste boş'}</div>):(
@@ -258,7 +258,7 @@ export default function SecimTakipSistemi() {
                   <div className={`check ${geldiMi?'on':''}`} onClick={()=>toggleGeldi(k.id)}>{geldiMi&&<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:'#fff',fontWeight:600,marginBottom:'2px',display:'flex',alignItems:'center',flexWrap:'wrap'}}>{k.ad}{geldiMi && durum.isaretleyen && (<span className="isaretleyen">✓ {durum.isaretleyen} - {durum.saat}</span>)}</div>
-                    <div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>#{k.sicil} • {k.telefon!=='Telefon Yok'?k.telefon:'📵 Tel yok'}{(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && k.referanslar.length>0 && (<span style={{color:'rgba(255,255,255,0.3)'}}> • {k.referanslar[0]}</span>)}</div>
+                    <div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>#{k.sicil} • {k.telefon!=='Telefon Yok'?k.telefon:'📵 Tel yok'}{(kullaniciRolu==='superadmin'||kullaniciRolu==='admin'||kullaniciRolu==='moderator') && k.referanslar.length>0 && (<span style={{color:'rgba(255,255,255,0.3)'}}> • {k.referanslar[0]}</span>)}</div>
                   </div>
                   {!geldiMi && k.telefon!=='Telefon Yok'?(<a href={`tel:${k.telefon}`} className="btn-call">📞 Ara</a>):!geldiMi?(<span className="btn-call disabled">Tel Yok</span>):(<span style={{color:'#00c853',fontWeight:600,fontSize:'0.9rem'}}>✓ Geldi</span>)}
                 </div>
