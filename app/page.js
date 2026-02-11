@@ -49,6 +49,7 @@ export default function SecimTakipSistemi() {
   const [sifirlaCOnay, setSifirlaOnay] = useState(false);
   const [raporGoster, setRaporGoster] = useState(false);
   const [geriSayim, setGeriSayim] = useState({ gun: 0, saat: 0, dakika: 0, saniye: 0, bitti: false });
+  const [onayModal, setOnayModal] = useState(null); // {kisi, tip: 'geldi'|'gelemez'}
 
   useEffect(() => {
     const geldiRef = ref(database, 'geldi');
@@ -69,6 +70,22 @@ export default function SecimTakipSistemi() {
       } catch(e) { localStorage.removeItem('secim_oturum'); }
     }
   }, []);
+
+  // Android geri tuşu: arama/filtre varsa sıfırla, yoksa ana ekrana dön
+  useEffect(() => {
+    if (!girisYapildi) return;
+    const pushState = () => { window.history.pushState({ app: true }, ''); };
+    pushState();
+    const handlePop = () => {
+      if (aramaMetni) { setAramaMetni(''); pushState(); }
+      else if (filtre !== 'hepsi') { setFiltre('hepsi'); pushState(); }
+      else if (seciliKullanici) { setSeciliKullanici(''); pushState(); }
+      else if (seciliSandik) { setSeciliSandik(''); pushState(); }
+      else { pushState(); }
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, [girisYapildi, aramaMetni, filtre, seciliKullanici, seciliSandik]);
 
   useEffect(() => {
     const hedef = new Date('2026-02-14T10:00:00+03:00').getTime();
@@ -190,7 +207,7 @@ export default function SecimTakipSistemi() {
     let liste = aktifListe;
     if (aramaMetni) {
       const aranan = turkceNormalize(aramaMetni);
-      liste = liste.filter(k => turkceNormalize(k.ad).includes(aranan) || (k.tel && k.tel.includes(aramaMetni)));
+      liste = liste.filter(k => turkceNormalize(k.ad).includes(aranan) || (k.tel && k.tel.includes(aramaMetni)) || (k.sicil && String(k.sicil).includes(aramaMetni)));
     }
     if (filtre === 'geldi') {
       liste = liste.filter(k => geldiData[makeKey(k)]);
@@ -211,6 +228,15 @@ export default function SecimTakipSistemi() {
 
   const girisYap = () => {
     if (!girisTipi) { setGirisHatasi('Lütfen rol seçin'); return; }
+    // Referanssız giriş - şifresiz
+    if (girisTipi === 'referanssiz') {
+      setKullaniciAdi('REFERANSSIZ');
+      setKullaniciRolu('roldisi');
+      setGirisYapildi(true);
+      setGirisHatasi('');
+      localStorage.setItem('secim_oturum', JSON.stringify({ ad: 'REFERANSSIZ', rol: 'roldisi' }));
+      return;
+    }
     if (!girisAdi) { setGirisHatasi('Lütfen kullanıcı seçin'); return; }
     const kullanici = KULLANICILAR.find(k => k.ad === girisAdi);
     if (!kullanici) { setGirisHatasi('Kullanıcı bulunamadı'); return; }
@@ -232,22 +258,44 @@ export default function SecimTakipSistemi() {
 
   const toggleGeldi = async (kisi) => {
     const key = makeKey(kisi);
-    if (geldiData[key]) {
-      await remove(ref(database, 'geldi/' + key));
-    } else {
-      if (gelemezData[key]) await remove(ref(database, 'gelemez/' + key));
-      await set(ref(database, 'geldi/' + key), { geldi: true, isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+    // Eğer zaten işaretlenmişse onay iste
+    if (geldiData[key] || gelemezData[key]) {
+      setOnayModal({ kisi, tip: 'geldi' });
+      return;
     }
+    await set(ref(database, 'geldi/' + key), { geldi: true, isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
   };
 
   const toggleGelemez = async (kisi) => {
     const key = makeKey(kisi);
-    if (gelemezData[key]) {
-      await remove(ref(database, 'gelemez/' + key));
-    } else {
-      if (geldiData[key]) await remove(ref(database, 'geldi/' + key));
-      await set(ref(database, 'gelemez/' + key), { isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+    // Eğer zaten işaretlenmişse onay iste
+    if (geldiData[key] || gelemezData[key]) {
+      setOnayModal({ kisi, tip: 'gelemez' });
+      return;
     }
+    await set(ref(database, 'gelemez/' + key), { isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+  };
+
+  const onaylaIsaret = async () => {
+    if (!onayModal) return;
+    const { kisi, tip } = onayModal;
+    const key = makeKey(kisi);
+    if (tip === 'geldi') {
+      if (geldiData[key]) {
+        await remove(ref(database, 'geldi/' + key));
+      } else {
+        if (gelemezData[key]) await remove(ref(database, 'gelemez/' + key));
+        await set(ref(database, 'geldi/' + key), { geldi: true, isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+      }
+    } else {
+      if (gelemezData[key]) {
+        await remove(ref(database, 'gelemez/' + key));
+      } else {
+        if (geldiData[key]) await remove(ref(database, 'geldi/' + key));
+        await set(ref(database, 'gelemez/' + key), { isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+      }
+    }
+    setOnayModal(null);
   };
 
   const topluSifirla = async () => {
@@ -265,7 +313,7 @@ export default function SecimTakipSistemi() {
       { key: 'moderator', label: 'Moderatör', icon: '🛡️', renk: '#00796b', bg: 'rgba(0,150,136,0.08)', border: 'rgba(0,150,136,0.3)' },
       { key: 'referans', label: 'Referans', icon: '👥', renk: '#1565c0', bg: 'rgba(33,150,243,0.08)', border: 'rgba(33,150,243,0.3)' },
       { key: 'sandiklar', label: 'Sandıklar', icon: '📦', renk: '#5d4037', bg: 'rgba(93,64,55,0.08)', border: 'rgba(93,64,55,0.3)' },
-      { key: 'roldisi', label: 'Rol Dışı', icon: '📋', renk: '#546e7a', bg: 'rgba(84,110,122,0.08)', border: 'rgba(84,110,122,0.3)' },
+      { key: 'referanssiz', label: 'Referanssız', icon: '📋', renk: '#546e7a', bg: 'rgba(84,110,122,0.08)', border: 'rgba(84,110,122,0.3)' },
     ];
     const seciliRol = rolSecenekleri.find(r => r.key === girisTipi);
     const rolKullanicilari = girisTipi ? KULLANICILAR.filter(k => k.rol === girisTipi) : [];
@@ -293,13 +341,18 @@ export default function SecimTakipSistemi() {
             ))}
           </div>
           {/* Kullanıcı listesi ve şifre (rol seçildikten sonra) */}
-          {girisTipi && (
+          {girisTipi && girisTipi !== 'referanssiz' && (
             <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
               <select value={girisAdi} onChange={e => { setGirisAdi(e.target.value); setGirisHatasi(''); }}>
                 <option value="">-- Kullanıcı Seçin --</option>
-                {rolKullanicilari.map(k => <option key={k.ad} value={k.ad}>{k.ad}</option>)}
+                {rolKullanicilari.sort((a,b) => a.ad.localeCompare(b.ad,'tr')).map(k => <option key={k.ad} value={k.ad}>{k.ad}</option>)}
               </select>
               <input type="password" placeholder="Şifre (telefon son 6 hane)" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && girisYap()} />
+            </div>
+          )}
+          {girisTipi === 'referanssiz' && (
+            <div style={{textAlign:'center',color:'#546e7a',fontSize:'0.85rem',padding:'10px 0'}}>
+              Referanssız üye listesine şifresiz erişim
             </div>
           )}
           {girisHatasi && <div style={{background:'rgba(233,69,96,0.1)',border:'1px solid rgba(233,69,96,0.3)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#e94560',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
@@ -334,22 +387,43 @@ export default function SecimTakipSistemi() {
     );
   }
 
+  // Özel liste istatistikleri (referanslı, referanssız, çakışanlar)
+  const ozelListeIstat = useMemo(() => {
+    const hesapla = (kisiler) => {
+      const t = kisiler.length;
+      const g = kisiler.filter(k => geldiData[makeKey(k)]).length;
+      const e = kisiler.filter(k => gelemezData[makeKey(k)]).length;
+      return { toplam: t, geldi: g, gelemez: e, yuzde: t > 0 ? Math.round(g / t * 100) : 0 };
+    };
+    return {
+      referansli: hesapla(SECIM_DATA.referansli.kisiler),
+      referanssiz: hesapla(SECIM_DATA.referanssiz.kisiler),
+      cakisanlar: hesapla(SECIM_DATA.cakisanlar.kisiler),
+    };
+  }, [geldiData, gelemezData]);
+
   // -- ANA EKRAN --
   const dropdownSecenekler = (() => {
     const s = [];
-    s.push({ ad: 'TÜM LİSTE', label: 'TÜM LİSTE ('+SECIM_DATA.roller.reduce((a,r)=>a+r.referans_sayisi,0)+' + '+SECIM_DATA.referanssiz.referans_sayisi+' referanssız)', grup: 'ozel' });
-    referansAramaOranlari.forEach(r => {
+    s.push({ ad: 'TÜM LİSTE', label: 'TÜM LİSTE ('+SECIM_DATA.roller.reduce((a,r)=>a+r.referans_sayisi,0)+' + '+SECIM_DATA.referanssiz.referans_sayisi+' referanssız) - %' + genelIstatistik.yuzde + ' geldi', grup: 'ozel' });
+    // Referans sorumluları - alfabetik sıralı
+    const siraliReferanslar = [...referansAramaOranlari].sort((a,b) => a.ad.localeCompare(b.ad,'tr'));
+    siraliReferanslar.forEach(r => {
       const yuzde = r.toplam > 0 ? Math.round(r.aranan / r.toplam * 100) : 0;
       s.push({ ad: r.ad, label: r.ad + ' (' + r.toplam + ') - ' + r.aranan + '/' + r.toplam + ' geldi %' + yuzde + (r.gelemez > 0 ? ' | ' + r.gelemez + ' gelemez' : ''), grup: 'referans' });
     });
     sandikOranlari.forEach(x => { s.push({ ad: x.ad, label: x.ad + ' (' + x.geldi + '/' + x.toplam + ' oy kullandı %' + x.yuzde + ')', grup: 'sandik' }); });
-    s.push({ ad: 'REFERANSLI', label: 'REFERANSLI (' + SECIM_DATA.referansli.referans_sayisi + ' kişi)', grup: 'ozel' });
-    s.push({ ad: 'REFERANSSIZ', label: 'REFERANSSIZ (' + SECIM_DATA.referanssiz.referans_sayisi + ' kişi)', grup: 'ozel' });
-    s.push({ ad: 'ÇAKIŞANLAR', label: 'ÇAKIŞANLAR (' + SECIM_DATA.cakisanlar.referans_sayisi + ' kişi)', grup: 'ozel' });
+    const ri = ozelListeIstat.referansli;
+    s.push({ ad: 'REFERANSLI', label: 'REFERANSLI (' + ri.toplam + ') - ' + ri.geldi + ' geldi %' + ri.yuzde + (ri.gelemez > 0 ? ' | ' + ri.gelemez + ' gelemez' : ''), grup: 'ozel' });
+    const rz = ozelListeIstat.referanssiz;
+    s.push({ ad: 'REFERANSSIZ', label: 'REFERANSSIZ (' + rz.toplam + ') - ' + rz.geldi + ' geldi %' + rz.yuzde + (rz.gelemez > 0 ? ' | ' + rz.gelemez + ' gelemez' : ''), grup: 'ozel' });
+    const ca = ozelListeIstat.cakisanlar;
+    s.push({ ad: 'ÇAKIŞANLAR', label: 'ÇAKIŞANLAR (' + ca.toplam + ') - ' + ca.geldi + ' geldi %' + ca.yuzde + (ca.gelemez > 0 ? ' | ' + ca.gelemez + ' gelemez' : ''), grup: 'ozel' });
     return s;
   })();
 
   const isSpecialUser = ['SANDIKLAR', 'REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].includes(kullaniciAdi);
+  const isReferanssizGiris = kullaniciAdi === 'REFERANSSIZ' && kullaniciRolu === 'roldisi';
   const showDropdown = ['superadmin', 'admin', 'moderator'].includes(kullaniciRolu) && !isSpecialUser;
   const showSandikDropdown = kullaniciRolu === 'sandiklar';
   const isAdmin = ['superadmin', 'admin'].includes(kullaniciRolu);
@@ -365,7 +439,7 @@ export default function SecimTakipSistemi() {
             <BizimOdaLogo />
             <div style={{borderLeft:'1px solid #e0e0e0',paddingLeft:'12px'}}>
               <div style={{color:'#333',fontWeight:600,fontSize:'0.95rem'}}>{kullaniciAdi}</div>
-              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(156,39,176,0.15)':kullaniciRolu==='admin'?'rgba(255,152,0,0.15)':kullaniciRolu==='moderator'?'rgba(0,150,136,0.15)':kullaniciRolu==='sandiklar'?'rgba(93,64,55,0.15)':kullaniciRolu==='roldisi'?'rgba(84,110,122,0.15)':'rgba(33,150,243,0.15)',color:kullaniciRolu==='superadmin'?'#7b1fa2':kullaniciRolu==='admin'?'#e65100':kullaniciRolu==='moderator'?'#00796b':kullaniciRolu==='sandiklar'?'#5d4037':kullaniciRolu==='roldisi'?'#546e7a':'#1565c0'}}>{{superadmin:'Superadmin',admin:'Admin',moderator:'Moderatör',sandiklar:'Sandıklar',roldisi:'Rol Dışı',referans:'Referans'}[kullaniciRolu] || kullaniciRolu}</span>
+              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(156,39,176,0.15)':kullaniciRolu==='admin'?'rgba(255,152,0,0.15)':kullaniciRolu==='moderator'?'rgba(0,150,136,0.15)':kullaniciRolu==='sandiklar'?'rgba(93,64,55,0.15)':kullaniciRolu==='roldisi'?'rgba(84,110,122,0.15)':'rgba(33,150,243,0.15)',color:kullaniciRolu==='superadmin'?'#7b1fa2':kullaniciRolu==='admin'?'#e65100':kullaniciRolu==='moderator'?'#00796b':kullaniciRolu==='sandiklar'?'#5d4037':kullaniciRolu==='roldisi'?'#546e7a':'#1565c0'}}>{{superadmin:'Superadmin',admin:'Admin',moderator:'Moderatör',sandiklar:'Sandıklar',roldisi:'Referanssız',referans:'Referans'}[kullaniciRolu] || kullaniciRolu}</span>
             </div>
           </div>
           <button onClick={cikisYap} style={{background:'#f8f9fa',border:'1px solid #dee2e6',color:'#666',padding:'8px 14px',borderRadius:'8px',cursor:'pointer',fontSize:'0.85rem'}}>Çıkış</button>
@@ -575,7 +649,7 @@ export default function SecimTakipSistemi() {
         {/* Arama ve filtre */}
         {aktifListe.length > 0 && (
           <div style={{marginBottom:'16px',display:'flex',flexDirection:'column',gap:'10px'}}>
-            <input placeholder="🔍 İsim veya telefon ara..." value={aramaMetni} onChange={e => setAramaMetni(e.target.value)} />
+            <input placeholder="🔍 İsim, sicil no veya telefon ara..." value={aramaMetni} onChange={e => setAramaMetni(e.target.value)} />
             <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
               {[['hepsi','Hepsi'],['geldi','✅ Geldi'],['gelemez','❌ Gelemez'],['aranmayan','⏳ Bekleyen']].map(([f,label]) => (<button key={f} className={`fbtn ${filtre === f ? 'on' : ''}`} onClick={() => setFiltre(f)}>{label}</button>))}
             </div>
@@ -600,7 +674,8 @@ export default function SecimTakipSistemi() {
               <div style={{flex:1,minWidth:0}}>
                 <div style={{color:'#333',fontWeight:500,fontSize:'0.95rem'}}>
                   {kisi.ad}
-                  {kisi.sandik && <span style={{color:'#aaa',fontSize:'0.75rem',marginLeft:'6px'}}>S{kisi.sandik}</span>}
+                  {kisi.sicil && <span style={{color:'#bbb',fontSize:'0.7rem',marginLeft:'6px'}}>({kisi.sicil})</span>}
+                  {kisi.sandik && <span style={{color:'#aaa',fontSize:'0.75rem',marginLeft:'4px'}}>S{kisi.sandik}</span>}
                   {geldi && <span className="isaretleyen">{geldi.isaretleyen} - {geldi.saat}</span>}
                   {gelemez && <span className="gelemez-badge">Gelemez - {gelemez.isaretleyen}</span>}
                 </div>
@@ -620,10 +695,28 @@ export default function SecimTakipSistemi() {
         })}
       </div>
 
+      {/* Başa dön butonu */}
+      <button onClick={() => window.scrollTo({top:0,behavior:'smooth'})} style={{position:'fixed',bottom:'20px',right:'20px',width:'44px',height:'44px',borderRadius:'50%',background:'linear-gradient(135deg,#e94560,#ff6b6b)',color:'#fff',border:'none',fontSize:'1.2rem',cursor:'pointer',boxShadow:'0 4px 12px rgba(233,69,96,0.4)',zIndex:99,display:'flex',alignItems:'center',justifyContent:'center'}}>↑</button>
+
       {/* Footer */}
       <div style={{textAlign:'center',padding:'24px 16px 16px',fontSize:'0.75rem',color:'#aaa'}}>
         2026 <a href="https://arfhause.com" target="_blank" rel="noopener noreferrer" style={{color:'#e94560',textDecoration:'none',fontWeight:600}}>Arfhause</a>
       </div>
+
+      {/* Onay modalı - geldi/gelemez değiştirme */}
+      {onayModal && (
+        <div className="modal" onClick={() => setOnayModal(null)}>
+          <div onClick={e => e.stopPropagation()}>
+            <h3 style={{color:'#e65100',margin:'0 0 12px'}}>⚠️ İşaret Değiştirme</h3>
+            <p style={{color:'#666',fontSize:'0.9rem'}}><b>{onayModal.kisi.ad}</b> zaten {geldiData[makeKey(onayModal.kisi)] ? 'GELDİ' : 'GELEMEZ'} olarak işaretli.</p>
+            <p style={{color:'#666',fontSize:'0.85rem'}}>{onayModal.tip === 'geldi' ? (geldiData[makeKey(onayModal.kisi)] ? 'İşareti kaldırmak' : 'GELDİ olarak değiştirmek') : (gelemezData[makeKey(onayModal.kisi)] ? 'İşareti kaldırmak' : 'GELEMEZ olarak değiştirmek')} istiyor musunuz?</p>
+            <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
+              <button className="btn" style={{background:'#999',flex:1}} onClick={() => setOnayModal(null)}>İptal</button>
+              <button className="btn" style={{flex:1}} onClick={onaylaIsaret}>Onayla</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sıfırlama modalı */}
       {sifirlaCOnay && (
