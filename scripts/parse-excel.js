@@ -162,7 +162,7 @@ function telefonSifre(ad) {
 
 // KULLANICILAR listesi
 const kullanicilar = [
-  { ad: 'MEHMET TUGRUL KAYA', sifre: '611561', rol: 'superadmin' },
+  { ad: 'ARFHAUSE', sifre: '611561', rol: 'superadmin' },
 ];
 
 // Admin kullanıcıları
