@@ -17,19 +17,18 @@ function turkceNormalize(str) {
 }
 
 const BizimOdaLogo = ({ size = "normal" }) => {
-  const w = size === "large" ? 180 : 120;
-  const h = size === "large" ? 44 : 30;
   const fs = size === "large" ? 28 : 18;
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <defs>
-        <linearGradient id="blogo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#e94560"/>
-          <stop offset="1" stopColor="#ff6b6b"/>
-        </linearGradient>
-      </defs>
-      <text x={w/2} y={h/2+1} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="url(#blogo)" fontFamily="system-ui,-apple-system,sans-serif" letterSpacing="1">BİZİMODA</text>
-    </svg>
+    <span style={{fontFamily:'system-ui,-apple-system,sans-serif',fontWeight:800,fontSize:fs,letterSpacing:'1px',userSelect:'none'}}>
+      <span style={{color:'#1a1a1a'}}>B</span>
+      <span style={{color:'#1a1a1a'}}>İ</span>
+      <span style={{color:'#1a1a1a'}}>Z</span>
+      <span style={{color:'#e94560'}}>İ</span>
+      <span style={{color:'#e94560'}}>M</span>
+      <span style={{color:'#e94560'}}>O</span>
+      <span style={{color:'#1a1a1a'}}>D</span>
+      <span style={{color:'#1a1a1a'}}>A</span>
+    </span>
   );
 };
 
@@ -214,10 +213,12 @@ export default function SecimTakipSistemi() {
   // -- GİRİŞ EKRANI --
   if (!girisYapildi) {
     const rolSecenekleri = [
-      { key: 'superadmin', label: 'Ynetici', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>), renk: '#7b1fa2', bg: 'rgba(156,39,176,0.08)', border: 'rgba(156,39,176,0.3)' },
-      { key: 'admin', label: 'Admin', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>), renk: '#e65100', bg: 'rgba(255,152,0,0.08)', border: 'rgba(255,152,0,0.3)' },
-      { key: 'moderator', label: 'Moderatr', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>), renk: '#00796b', bg: 'rgba(0,150,136,0.08)', border: 'rgba(0,150,136,0.3)' },
-      { key: 'referans', label: 'Referans', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>), renk: '#1565c0', bg: 'rgba(33,150,243,0.08)', border: 'rgba(33,150,243,0.3)' },
+      { key: 'superadmin', label: 'Superadmin', icon: '⭐', renk: '#7b1fa2', bg: 'rgba(156,39,176,0.08)', border: 'rgba(156,39,176,0.3)' },
+      { key: 'admin', label: 'Admin', icon: '⚙️', renk: '#e65100', bg: 'rgba(255,152,0,0.08)', border: 'rgba(255,152,0,0.3)' },
+      { key: 'moderator', label: 'Moderatör', icon: '🛡️', renk: '#00796b', bg: 'rgba(0,150,136,0.08)', border: 'rgba(0,150,136,0.3)' },
+      { key: 'referans', label: 'Referans', icon: '👥', renk: '#1565c0', bg: 'rgba(33,150,243,0.08)', border: 'rgba(33,150,243,0.3)' },
+      { key: 'sandiklar', label: 'Sandıklar', icon: '📦', renk: '#5d4037', bg: 'rgba(93,64,55,0.08)', border: 'rgba(93,64,55,0.3)' },
+      { key: 'roldisi', label: 'Rol Dışı', icon: '📋', renk: '#546e7a', bg: 'rgba(84,110,122,0.08)', border: 'rgba(84,110,122,0.3)' },
     ];
     const seciliRol = rolSecenekleri.find(r => r.key === girisTipi);
     const rolKullanicilari = girisTipi ? KULLANICILAR.filter(k => k.rol === girisTipi) : [];
@@ -230,7 +231,7 @@ export default function SecimTakipSistemi() {
             <p style={{color:'#999',margin:'8px 0 0',fontSize:'0.85rem'}}>Seçim Takip Sistemi</p>
           </div>
           {/* Rol butonları */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'16px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'16px'}}>
             {rolSecenekleri.map(r => (
               <button key={r.key} onClick={() => { setGirisTipi(r.key); setGirisAdi(''); setGirisHatasi(''); }} style={{
                 background: girisTipi === r.key ? r.bg : '#f8f9fa',
@@ -239,7 +240,7 @@ export default function SecimTakipSistemi() {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
                 transition: 'all 0.2s', color: girisTipi === r.key ? r.renk : '#aaa'
               }}>
-                {r.icon}
+                <span style={{fontSize:'1.3rem'}}>{r.icon}</span>
                 <span style={{fontSize:'0.65rem',fontWeight:700,color: girisTipi === r.key ? r.renk : '#999',letterSpacing:'0.3px'}}>{r.label}</span>
               </button>
             ))}
@@ -284,7 +285,7 @@ export default function SecimTakipSistemi() {
 
   const isSpecialUser = ['SANDIKLAR', 'REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].includes(kullaniciAdi);
   const showDropdown = ['superadmin', 'admin', 'moderator'].includes(kullaniciRolu) && !isSpecialUser;
-  const showSandikDropdown = kullaniciAdi === 'SANDIKLAR';
+  const showSandikDropdown = kullaniciRolu === 'sandiklar';
   const isAdmin = ['superadmin', 'admin'].includes(kullaniciRolu);
 
   return (
@@ -298,7 +299,7 @@ export default function SecimTakipSistemi() {
             <BizimOdaLogo />
             <div style={{borderLeft:'1px solid #e0e0e0',paddingLeft:'12px'}}>
               <div style={{color:'#333',fontWeight:600,fontSize:'0.95rem'}}>{kullaniciAdi}</div>
-              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(156,39,176,0.15)':kullaniciRolu==='admin'?'rgba(255,152,0,0.15)':kullaniciRolu==='moderator'?'rgba(0,150,136,0.15)':'rgba(33,150,243,0.15)',color:kullaniciRolu==='superadmin'?'#7b1fa2':kullaniciRolu==='admin'?'#e65100':kullaniciRolu==='moderator'?'#00796b':'#1565c0'}}>{kullaniciRolu==='superadmin'?'🔑 Süper Admin':kullaniciRolu==='admin'?'⚙️ Admin':kullaniciRolu==='moderator'?'🛡️ Moderatör':'👤 Referans'}</span>
+              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(156,39,176,0.15)':kullaniciRolu==='admin'?'rgba(255,152,0,0.15)':kullaniciRolu==='moderator'?'rgba(0,150,136,0.15)':kullaniciRolu==='sandiklar'?'rgba(93,64,55,0.15)':kullaniciRolu==='roldisi'?'rgba(84,110,122,0.15)':'rgba(33,150,243,0.15)',color:kullaniciRolu==='superadmin'?'#7b1fa2':kullaniciRolu==='admin'?'#e65100':kullaniciRolu==='moderator'?'#00796b':kullaniciRolu==='sandiklar'?'#5d4037':kullaniciRolu==='roldisi'?'#546e7a':'#1565c0'}}>{{superadmin:'Superadmin',admin:'Admin',moderator:'Moderatör',sandiklar:'Sandıklar',roldisi:'Rol Dışı',referans:'Referans'}[kullaniciRolu] || kullaniciRolu}</span>
             </div>
           </div>
           <button onClick={cikisYap} style={{background:'#f8f9fa',border:'1px solid #dee2e6',color:'#666',padding:'8px 14px',borderRadius:'8px',cursor:'pointer',fontSize:'0.85rem'}}>Çıkış</button>

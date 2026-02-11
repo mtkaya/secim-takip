@@ -162,7 +162,7 @@ function telefonSifre(ad) {
 
 // KULLANICILAR listesi
 const kullanicilar = [
-  { ad: 'MEHMET TUGRUL KAYA', sifre: '123456', rol: 'superadmin' },
+  { ad: 'MEHMET TUGRUL KAYA', sifre: '611561', rol: 'superadmin' },
 ];
 
 // Admin kullanıcıları
@@ -170,9 +170,12 @@ adminIsimler.forEach(ad => {
   kullanicilar.push({ ad, sifre: telefonSifre(ad), rol: 'admin' });
 });
 
-// Özel moderatör kullanıcıları
-['SANDIKLAR', 'REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].forEach(ad => {
-  kullanicilar.push({ ad, sifre: '123456', rol: 'moderator' });
+// Sandık kullanıcısı
+kullanicilar.push({ ad: 'SANDIKLAR', sifre: '123456', rol: 'sandiklar' });
+
+// Rol Dışı kullanıcıları
+['REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].forEach(ad => {
+  kullanicilar.push({ ad, sifre: '123456', rol: 'roldisi' });
 });
 
 // Moderatörler (admin olmayanlar)
