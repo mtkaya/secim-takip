@@ -203,6 +203,21 @@ export default function SecimTakipSistemi() {
     });
   }, [geldiData, gelemezData]);
 
+  // Özel liste istatistikleri (referanslı, referanssız, çakışanlar)
+  const ozelListeIstat = useMemo(() => {
+    const hesapla = (kisiler) => {
+      const t = kisiler.length;
+      const g = kisiler.filter(k => geldiData[makeKey(k)]).length;
+      const e = kisiler.filter(k => gelemezData[makeKey(k)]).length;
+      return { toplam: t, geldi: g, gelemez: e, yuzde: t > 0 ? Math.round(g / t * 100) : 0 };
+    };
+    return {
+      referansli: hesapla(SECIM_DATA.referansli.kisiler),
+      referanssiz: hesapla(SECIM_DATA.referanssiz.kisiler),
+      cakisanlar: hesapla(SECIM_DATA.cakisanlar.kisiler),
+    };
+  }, [geldiData, gelemezData]);
+
   const filtrelenmisListe = useMemo(() => {
     let liste = aktifListe;
     if (aramaMetni) {
@@ -386,21 +401,6 @@ export default function SecimTakipSistemi() {
       </div>
     );
   }
-
-  // Özel liste istatistikleri (referanslı, referanssız, çakışanlar)
-  const ozelListeIstat = useMemo(() => {
-    const hesapla = (kisiler) => {
-      const t = kisiler.length;
-      const g = kisiler.filter(k => geldiData[makeKey(k)]).length;
-      const e = kisiler.filter(k => gelemezData[makeKey(k)]).length;
-      return { toplam: t, geldi: g, gelemez: e, yuzde: t > 0 ? Math.round(g / t * 100) : 0 };
-    };
-    return {
-      referansli: hesapla(SECIM_DATA.referansli.kisiler),
-      referanssiz: hesapla(SECIM_DATA.referanssiz.kisiler),
-      cakisanlar: hesapla(SECIM_DATA.cakisanlar.kisiler),
-    };
-  }, [geldiData, gelemezData]);
 
   // -- ANA EKRAN --
   const dropdownSecenekler = (() => {
