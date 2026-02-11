@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import { ref, onValue, set, remove, get } from 'firebase/database';
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth/web-extension';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth/web-extension';
 import { database, auth } from './lib/firebase';
 
 
@@ -36,6 +36,8 @@ export default function SecimTakipSistemi() {
   const [seciliGoruntuRol, setSeciliGoruntuRol] = useState('');
   const [havuzListeGoster, setHavuzListeGoster] = useState(false);
   const [girisLoading, setGirisLoading] = useState(false);
+  const [kayitModu, setKayitModu] = useState(false);
+  const [kayitAd, setKayitAd] = useState('');
 
   useEffect(() => {
     const geldiRef = ref(database, 'geldi');
@@ -74,18 +76,29 @@ export default function SecimTakipSistemi() {
   const girisYap = async () => {
     setGirisHatasi('');
     if (!email || !sifre) { setGirisHatasi('Lütfen e-posta ve şifre girin!'); return; }
+    if (kayitModu && !kayitAd.trim()) { setGirisHatasi('Lütfen adınızı girin!'); return; }
+    if (kayitModu && sifre.length < 6) { setGirisHatasi('Şifre en az 6 karakter olmalı!'); return; }
     setGirisLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, sifre);
+      if (kayitModu) {
+        const cred = await createUserWithEmailAndPassword(auth, email, sifre);
+        await set(ref(database, 'users/' + cred.user.uid), { ad: kayitAd.trim().toUpperCase(), role: 'referans' });
+      } else {
+        await signInWithEmailAndPassword(auth, email, sifre);
+      }
     } catch (error) {
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setGirisHatasi('Yanlış e-posta veya şifre!');
       } else if (error.code === 'auth/user-not-found') {
         setGirisHatasi('Bu e-posta ile kayıtlı kullanıcı bulunamadı!');
+      } else if (error.code === 'auth/email-already-in-use') {
+        setGirisHatasi('Bu e-posta zaten kayıtlı! Giriş yapmayı deneyin.');
+      } else if (error.code === 'auth/weak-password') {
+        setGirisHatasi('Şifre çok zayıf. En az 6 karakter girin.');
       } else if (error.code === 'auth/too-many-requests') {
         setGirisHatasi('Çok fazla deneme. Lütfen biraz bekleyin.');
       } else {
-        setGirisHatasi('Giriş hatası: ' + error.message);
+        setGirisHatasi('Hata: ' + error.message);
       }
     }
     setGirisLoading(false);
@@ -188,11 +201,13 @@ export default function SecimTakipSistemi() {
             <p style={{color:'#e94560',margin:0,fontSize:'0.95rem',fontWeight:'600'}}>🗳️ Seçim Takip Asistanı</p>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+            {kayitModu && (<div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Ad Soyad:</label><input type="text" placeholder="Adınızı ve soyadınızı girin" value={kayitAd} onChange={e=>setKayitAd(e.target.value)}/></div>)}
             <div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>E-posta:</label><input type="email" placeholder="E-posta adresinizi girin" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()}/></div>
-            <div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Şifre:</label><input type="password" placeholder="Şifrenizi girin" value={sifre} onChange={e=>setSifre(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()}/></div>
+            <div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Şifre:</label><input type="password" placeholder={kayitModu?'En az 6 karakter':'Şifrenizi girin'} value={sifre} onChange={e=>setSifre(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()}/></div>
           </div>
           {girisHatasi && (<div style={{background:'rgba(233,69,96,0.2)',border:'1px solid rgba(233,69,96,0.4)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#ff6b6b',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>)}
-          <button className="btn" onClick={girisYap} disabled={girisLoading} style={{marginTop:'16px'}}>{girisLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}</button>
+          <button className="btn" onClick={girisYap} disabled={girisLoading} style={{marginTop:'16px'}}>{girisLoading ? (kayitModu?'Kayıt yapılıyor...':'Giriş yapılıyor...') : (kayitModu?'Kayıt Ol':'Giriş Yap')}</button>
+          <div style={{textAlign:'center',marginTop:'12px'}}><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.85rem'}}>{kayitModu?'Zaten hesabınız var mı?':'Hesabınız yok mu?'} </span><span style={{color:'#e94560',fontSize:'0.85rem',cursor:'pointer',fontWeight:600}} onClick={()=>{setKayitModu(!kayitModu);setGirisHatasi('')}}>{kayitModu?'Giriş Yap':'Kayıt Ol'}</span></div>
         </div>
       </div>
     );
