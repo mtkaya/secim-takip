@@ -16,9 +16,21 @@ function turkceNormalize(str) {
     .toLowerCase();
 }
 
-const Logo = ({ size = "normal" }) => {
-  const s = size === "large" ? 48 : 32;
-  return (<svg width={s} height={s} viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#e94560"/><stop offset="1" stopColor="#ff6b6b"/></linearGradient></defs><text x="50" y="52" textAnchor="middle" dominantBaseline="central" fontSize="40" fontWeight="bold" fill="#fff">ST</text></svg>);
+const BizimOdaLogo = ({ size = "normal" }) => {
+  const w = size === "large" ? 180 : 120;
+  const h = size === "large" ? 44 : 30;
+  const fs = size === "large" ? 28 : 18;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <defs>
+        <linearGradient id="blogo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#e94560"/>
+          <stop offset="1" stopColor="#ff6b6b"/>
+        </linearGradient>
+      </defs>
+      <text x={w/2} y={h/2+1} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="url(#blogo)" fontFamily="system-ui,-apple-system,sans-serif" letterSpacing="1">BİZİMODA</text>
+    </svg>
+  );
 };
 
 export default function SecimTakipSistemi() {
@@ -202,21 +214,20 @@ export default function SecimTakipSistemi() {
   // -- GİRİŞ EKRANI --
   if (!girisYapildi) {
     const rolSecenekleri = [
-      { key: 'superadmin', label: 'Süper Admin', icon: '🔑', renk: '#7b1fa2', bg: 'rgba(156,39,176,0.08)', border: 'rgba(156,39,176,0.3)' },
-      { key: 'admin', label: 'Admin', icon: '⚙️', renk: '#e65100', bg: 'rgba(255,152,0,0.08)', border: 'rgba(255,152,0,0.3)' },
-      { key: 'moderator', label: 'Moderatör', icon: '🛡️', renk: '#00796b', bg: 'rgba(0,150,136,0.08)', border: 'rgba(0,150,136,0.3)' },
-      { key: 'referans', label: 'Referans', icon: '👤', renk: '#1565c0', bg: 'rgba(33,150,243,0.08)', border: 'rgba(33,150,243,0.3)' },
+      { key: 'superadmin', label: 'Ynetici', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>), renk: '#7b1fa2', bg: 'rgba(156,39,176,0.08)', border: 'rgba(156,39,176,0.3)' },
+      { key: 'admin', label: 'Admin', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>), renk: '#e65100', bg: 'rgba(255,152,0,0.08)', border: 'rgba(255,152,0,0.3)' },
+      { key: 'moderator', label: 'Moderatr', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>), renk: '#00796b', bg: 'rgba(0,150,136,0.08)', border: 'rgba(0,150,136,0.3)' },
+      { key: 'referans', label: 'Referans', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>), renk: '#1565c0', bg: 'rgba(33,150,243,0.08)', border: 'rgba(33,150,243,0.3)' },
     ];
     const seciliRol = rolSecenekleri.find(r => r.key === girisTipi);
     const rolKullanicilari = girisTipi ? KULLANICILAR.filter(k => k.rol === girisTipi) : [];
     return (
-      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f0f2f5 0%,#e8edf2 50%,#dce3ea 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',fontFamily:'system-ui,-apple-system,sans-serif'}}>
+      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f0f2f5 0%,#e8edf2 50%,#dce3ea 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'20px',fontFamily:'system-ui,-apple-system,sans-serif'}}>
         <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'100%',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
           <style>{`*{box-sizing:border-box}select,input{background:#f8f9fa;border:1px solid #dee2e6;color:#333;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select:focus,input:focus{border-color:#e94560}select option{background:#fff}.btn-login{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;cursor:pointer;width:100%;font-size:1rem}.btn-login:active{transform:scale(0.98)}`}</style>
           <div style={{textAlign:'center',marginBottom:'24px'}}>
-            <Logo size="large" />
-            <h2 style={{color:'#333',margin:'12px 0 8px',fontSize:'1.1rem',fontWeight:'500'}}>Hoş Geldiniz</h2>
-            <p style={{color:'#e94560',margin:0,fontSize:'0.95rem',fontWeight:'600'}}>🗳️ Seçim Takip Asistanı</p>
+            <BizimOdaLogo size="large" />
+            <p style={{color:'#999',margin:'8px 0 0',fontSize:'0.85rem'}}>Seçim Takip Sistemi</p>
           </div>
           {/* Rol butonları */}
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'16px'}}>
@@ -224,12 +235,12 @@ export default function SecimTakipSistemi() {
               <button key={r.key} onClick={() => { setGirisTipi(r.key); setGirisAdi(''); setGirisHatasi(''); }} style={{
                 background: girisTipi === r.key ? r.bg : '#f8f9fa',
                 border: `2px solid ${girisTipi === r.key ? r.border : '#e0e0e0'}`,
-                borderRadius: '12px', padding: '12px 4px', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                transition: 'all 0.2s'
+                borderRadius: '12px', padding: '14px 4px 10px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                transition: 'all 0.2s', color: girisTipi === r.key ? r.renk : '#aaa'
               }}>
-                <span style={{fontSize:'1.3rem'}}>{r.icon}</span>
-                <span style={{fontSize:'0.7rem',fontWeight:600,color: girisTipi === r.key ? r.renk : '#999'}}>{r.label}</span>
+                {r.icon}
+                <span style={{fontSize:'0.65rem',fontWeight:700,color: girisTipi === r.key ? r.renk : '#999',letterSpacing:'0.3px'}}>{r.label}</span>
               </button>
             ))}
           </div>
@@ -245,6 +256,12 @@ export default function SecimTakipSistemi() {
           )}
           {girisHatasi && <div style={{background:'rgba(233,69,96,0.1)',border:'1px solid rgba(233,69,96,0.3)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#e94560',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
           {girisTipi && <button className="btn-login" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>}
+          {/* Şubat Yakın */}
+          <div style={{textAlign:'center',marginTop:'20px',color:'#bbb',fontSize:'0.8rem',fontStyle:'italic'}}>Şubat yakın...</div>
+        </div>
+        {/* Footer */}
+        <div style={{marginTop:'20px',textAlign:'center',fontSize:'0.75rem',color:'#aaa'}}>
+          2026 <a href="https://arfhause.com" target="_blank" rel="noopener noreferrer" style={{color:'#e94560',textDecoration:'none',fontWeight:600}}>Arfhause</a>
         </div>
       </div>
     );
@@ -278,8 +295,8 @@ export default function SecimTakipSistemi() {
       <div style={{background:'#fff',borderBottom:'1px solid #e0e0e0',padding:'14px 16px',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
         <div style={{maxWidth:'700px',margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px'}}>
           <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-            <Logo />
-            <div>
+            <BizimOdaLogo />
+            <div style={{borderLeft:'1px solid #e0e0e0',paddingLeft:'12px'}}>
               <div style={{color:'#333',fontWeight:600,fontSize:'0.95rem'}}>{kullaniciAdi}</div>
               <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(156,39,176,0.15)':kullaniciRolu==='admin'?'rgba(255,152,0,0.15)':kullaniciRolu==='moderator'?'rgba(0,150,136,0.15)':'rgba(33,150,243,0.15)',color:kullaniciRolu==='superadmin'?'#7b1fa2':kullaniciRolu==='admin'?'#e65100':kullaniciRolu==='moderator'?'#00796b':'#1565c0'}}>{kullaniciRolu==='superadmin'?'🔑 Süper Admin':kullaniciRolu==='admin'?'⚙️ Admin':kullaniciRolu==='moderator'?'🛡️ Moderatör':'👤 Referans'}</span>
             </div>
@@ -425,6 +442,11 @@ export default function SecimTakipSistemi() {
             </div>
           );
         })}
+      </div>
+
+      {/* Footer */}
+      <div style={{textAlign:'center',padding:'24px 16px 16px',fontSize:'0.75rem',color:'#aaa'}}>
+        2026 <a href="https://arfhause.com" target="_blank" rel="noopener noreferrer" style={{color:'#e94560',textDecoration:'none',fontWeight:600}}>Arfhause</a>
       </div>
 
       {/* Sıfırlama modalı */}
