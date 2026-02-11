@@ -1,36 +1,9 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set, remove } from 'firebase/database';
+import { ref, onValue, set, remove, get } from 'firebase/database';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth/web-extension';
+import { database, auth } from './lib/firebase';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyARq30LxvQk8VOPrXMVicUimAaaj-ZlVYk",
-  authDomain: "secim-takip-ea62d.firebaseapp.com",
-  databaseURL: "https://secim-takip-ea62d-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "secim-takip-ea62d",
-  storageBucket: "secim-takip-ea62d.firebasestorage.app",
-  messagingSenderId: "391370672742",
-  appId: "1:391370672742:web:8a81debac198a7cfd87ba7"
-};
-
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-const KULLANICILAR = {
-  adminler: [
-    { ad: "ABDULKADİR CELEPÇİ", sifre: "1234" },
-    { ad: "ERDEM NALTEKİN", sifre: "1234" }
-  ],
-  moderatorler: [
-    { ad: "ALPARSLAN RECEP DEMİREL", sifre: "1234" },
-    { ad: "KAZIM SİNGİL", sifre: "1234" },
-    { ad: "TAHİR BEKDİK", sifre: "1234" },
-    { ad: "M.MERT ACIYAN", sifre: "1234" },
-    { ad: "ÖMER BATUHAN DENİZ", sifre: "1234" },
-    { ad: "İ.TARIK ŞEN", sifre: "1234" }
-  ],
-  referansSorumlulari: ["MUSTAFA KAYGISIZ", "YİĞİTHAN YAZGAN", "NALTEKİN", "DURMUŞ KÜPELİ", "RAŞİT KARATAŞ", "MEHMET AKİF TEKİN", "MUSTAFA ZAHİD KAYMAZ", "MELiH ÖZTÜRK", "İBRAHİM TOSUNLU", "AHMET YAĞCI", "NACİYE EZGİ KARANLIK", "DURMUŞ YAĞCI", "ALİ OSMAN AKER", "BÜLENT SOYHAN", "ÖZGÜR YILMAZ", "HASAN ULUTAŞ", "İKBAL ÖZKAN", "EYÜP ERTUĞRUL", "ALPEREN YOLDAŞ", "EMRE YAVUZ", "SEYİT ACAR", "KAAN KARAKAYA", "BERKAN ÜNAL", "ALİ ANDAÇ ÇAĞLAR"]
-};
 
 const SECIM_DATA = {
   roller: [{"ad": "ERDEM NALTEKİN", "referans_sayisi": 435}, {"ad": "KAZIM SİNGİL", "referans_sayisi": 262}, {"ad": "ALPARSLAN RECEP DEMİREL", "referans_sayisi": 218}, {"ad": "M.MERT ACIYAN", "referans_sayisi": 214}, {"ad": "ÖMER BATUHAN DENİZ", "referans_sayisi": 206}, {"ad": "TAHİR BEKDİK", "referans_sayisi": 199}, {"ad": "MUSTAFA KAYGISIZ", "referans_sayisi": 148}, {"ad": "ABDULKADİR CELEPÇİ", "referans_sayisi": 143}, {"ad": "İ.TARIK ŞEN", "referans_sayisi": 143}, {"ad": "YİĞİTHAN YAZGAN", "referans_sayisi": 143}, {"ad": "NALTEKİN", "referans_sayisi": 114}, {"ad": "DURMUŞ KÜPELİ", "referans_sayisi": 111}, {"ad": "RAŞİT KARATAŞ", "referans_sayisi": 91}, {"ad": "MEHMET AKİF TEKİN", "referans_sayisi": 87}, {"ad": "MUSTAFA ZAHİD KAYMAZ", "referans_sayisi": 77}, {"ad": "MELiH ÖZTÜRK", "referans_sayisi": 77}, {"ad": "İBRAHİM TOSUNLU", "referans_sayisi": 64}, {"ad": "AHMET YAĞCI", "referans_sayisi": 47}, {"ad": "NACİYE EZGİ KARANLIK", "referans_sayisi": 46}, {"ad": "DURMUŞ YAĞCI", "referans_sayisi": 46}, {"ad": "ALİ OSMAN AKER", "referans_sayisi": 45}, {"ad": "BÜLENT SOYHAN", "referans_sayisi": 30}, {"ad": "ÖZGÜR YILMAZ", "referans_sayisi": 22}, {"ad": "HASAN ULUTAŞ", "referans_sayisi": 18}, {"ad": "İKBAL ÖZKAN", "referans_sayisi": 16}, {"ad": "EYÜP ERTUĞRUL", "referans_sayisi": 14}, {"ad": "ALPEREN YOLDAŞ", "referans_sayisi": 13}, {"ad": "EMRE YAVUZ", "referans_sayisi": 13}, {"ad": "SEYİT ACAR", "referans_sayisi": 12}, {"ad": "KAAN KARAKAYA", "referans_sayisi": 11}, {"ad": "BERKAN ÜNAL", "referans_sayisi": 6}, {"ad": "ALİ ANDAÇ ÇAĞLAR", "referans_sayisi": 1}],
@@ -52,8 +25,7 @@ export default function SecimTakipSistemi() {
   const [girisYapildi, setGirisYapildi] = useState(false);
   const [kullaniciRolu, setKullaniciRolu] = useState('');
   const [kullaniciAdi, setKullaniciAdi] = useState('');
-  const [girisTipi, setGirisTipi] = useState('referans');
-  const [seciliKullanici, setSeciliKullanici] = useState('');
+  const [email, setEmail] = useState('');
   const [sifre, setSifre] = useState('');
   const [girisHatasi, setGirisHatasi] = useState('');
   const [aramaText, setAramaText] = useState('');
@@ -63,54 +35,69 @@ export default function SecimTakipSistemi() {
   const [loading, setLoading] = useState(true);
   const [seciliGoruntuRol, setSeciliGoruntuRol] = useState('');
   const [havuzListeGoster, setHavuzListeGoster] = useState(false);
+  const [girisLoading, setGirisLoading] = useState(false);
 
   useEffect(() => {
     const geldiRef = ref(database, 'geldi');
-    const unsubscribe = onValue(geldiRef, (snapshot) => {
+    const unsubGeldi = onValue(geldiRef, (snapshot) => {
       const data = snapshot.val();
       setGeldiDurumu(data || {});
+    });
+
+    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const snapshot = await get(ref(database, 'users/' + firebaseUser.uid));
+          const userData = snapshot.val();
+          if (userData) {
+            setKullaniciRolu(userData.role);
+            setKullaniciAdi(userData.ad);
+            setGirisYapildi(true);
+          } else {
+            setGirisHatasi('Kullanıcı rolü bulunamadı. Yönetici ile iletişime geçin.');
+            await signOut(auth);
+          }
+        } catch (err) {
+          console.error('Rol okuma hatası:', err);
+        }
+      } else {
+        setGirisYapildi(false);
+        setKullaniciRolu('');
+        setKullaniciAdi('');
+      }
       setLoading(false);
     });
-    const oturum = localStorage.getItem('secim-oturum-2026-v2');
-    if (oturum) {
-      const o = JSON.parse(oturum);
-      setKullaniciRolu(o.rol);
-      setKullaniciAdi(o.ad);
-      setGirisYapildi(true);
-    } else {
-      setLoading(false);
-    }
-    return () => unsubscribe();
+
+    return () => { unsubGeldi(); unsubAuth(); };
   }, []);
 
-  const girisYap = () => {
+  const girisYap = async () => {
     setGirisHatasi('');
-    if (girisTipi === 'admin') {
-      const admin = KULLANICILAR.adminler.find(a => a.ad === seciliKullanici);
-      if (!seciliKullanici) { setGirisHatasi('Lütfen adınızı seçin!'); return; }
-      if (!admin || sifre !== admin.sifre) { setGirisHatasi('Yanlış şifre!'); return; }
-      localStorage.setItem('secim-oturum-2026-v2', JSON.stringify({ rol: 'admin', ad: admin.ad }));
-      setKullaniciRolu('admin'); setKullaniciAdi(admin.ad); setGirisYapildi(true);
-    } else if (girisTipi === 'moderator') {
-      const mod = KULLANICILAR.moderatorler.find(m => m.ad === seciliKullanici);
-      if (!seciliKullanici) { setGirisHatasi('Lütfen adınızı seçin!'); return; }
-      if (!mod || sifre !== mod.sifre) { setGirisHatasi('Yanlış şifre!'); return; }
-      localStorage.setItem('secim-oturum-2026-v2', JSON.stringify({ rol: 'moderator', ad: mod.ad }));
-      setKullaniciRolu('moderator'); setKullaniciAdi(mod.ad); setGirisYapildi(true);
-    } else {
-      if (!seciliKullanici) { setGirisHatasi('Lütfen adınızı seçin!'); return; }
-      localStorage.setItem('secim-oturum-2026-v2', JSON.stringify({ rol: 'referans', ad: seciliKullanici }));
-      setKullaniciRolu('referans'); setKullaniciAdi(seciliKullanici); setGirisYapildi(true);
+    if (!email || !sifre) { setGirisHatasi('Lütfen e-posta ve şifre girin!'); return; }
+    setGirisLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, sifre);
+    } catch (error) {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setGirisHatasi('Yanlış e-posta veya şifre!');
+      } else if (error.code === 'auth/user-not-found') {
+        setGirisHatasi('Bu e-posta ile kayıtlı kullanıcı bulunamadı!');
+      } else if (error.code === 'auth/too-many-requests') {
+        setGirisHatasi('Çok fazla deneme. Lütfen biraz bekleyin.');
+      } else {
+        setGirisHatasi('Giriş hatası: ' + error.message);
+      }
     }
+    setGirisLoading(false);
   };
 
-  const cikisYap = () => {
-    localStorage.removeItem('secim-oturum-2026-v2');
-    setGirisYapildi(false); setKullaniciRolu(''); setKullaniciAdi('');
-    setSifre(''); setSeciliKullanici(''); setSeciliGoruntuRol(''); setGirisTipi('referans');
+  const cikisYap = async () => {
+    await signOut(auth);
+    setSifre(''); setEmail(''); setSeciliGoruntuRol('');
   };
 
   const toggleGeldi = async (kisiId) => {
+    if (!auth.currentUser) return;
     const mevcutDurum = geldiDurumu[kisiId];
     if (mevcutDurum && mevcutDurum.geldi) {
       await remove(ref(database, 'geldi/' + kisiId));
@@ -193,23 +180,19 @@ export default function SecimTakipSistemi() {
   if (!girisYapildi) {
     return (
       <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)',fontFamily:'system-ui,-apple-system,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
-        <style>{`*{box-sizing:border-box}.card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:20px}.btn{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:14px 28px;border-radius:12px;font-weight:600;cursor:pointer;font-size:1rem;width:100%}.btn:active{transform:scale(0.98)}select,input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select option{background:#1a1a2e}.tab{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);padding:10px 16px;border-radius:8px;cursor:pointer;font-size:0.9rem;flex:1;text-align:center}.tab.active{background:linear-gradient(135deg,#e94560,#ff6b6b);border-color:#e94560;color:#fff}`}</style>
+        <style>{`*{box-sizing:border-box}.card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:20px}.btn{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:14px 28px;border-radius:12px;font-weight:600;cursor:pointer;font-size:1rem;width:100%}.btn:active{transform:scale(0.98)}.btn:disabled{opacity:0.6;cursor:not-allowed}select,input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select option{background:#1a1a2e}`}</style>
         <div className="card" style={{padding:'30px',maxWidth:'400px',width:'100%'}}>
           <div style={{textAlign:'center',marginBottom:'24px'}}>
             <div style={{marginBottom:'16px'}}><Logo size="large" /></div>
             <h2 style={{color:'rgba(255,255,255,0.9)',margin:'0 0 8px',fontSize:'1.1rem',fontWeight:'500'}}>Hoş Geldiniz</h2>
             <p style={{color:'#e94560',margin:0,fontSize:'0.95rem',fontWeight:'600'}}>🗳️ Seçim Takip Asistanı</p>
           </div>
-          <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
-            <button className={`tab ${girisTipi==='referans'?'active':''}`} onClick={()=>{setGirisTipi('referans');setGirisHatasi('');setSeciliKullanici('');setSifre('')}}>👤 Referans</button>
-            <button className={`tab ${girisTipi==='moderator'?'active':''}`} onClick={()=>{setGirisTipi('moderator');setGirisHatasi('');setSeciliKullanici('');setSifre('')}}>🛡️ Mod</button>
-            <button className={`tab ${girisTipi==='admin'?'active':''}`} onClick={()=>{setGirisTipi('admin');setGirisHatasi('');setSeciliKullanici('');setSifre('')}}>⚙️ Admin</button>
+          <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+            <div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>E-posta:</label><input type="email" placeholder="E-posta adresinizi girin" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()}/></div>
+            <div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Şifre:</label><input type="password" placeholder="Şifrenizi girin" value={sifre} onChange={e=>setSifre(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()}/></div>
           </div>
-          {girisTipi === 'referans' && (<div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Adınızı seçin:</label><select value={seciliKullanici} onChange={e=>setSeciliKullanici(e.target.value)} style={{marginBottom:'16px'}}><option value="">-- Listeden seçin --</option>{KULLANICILAR.referansSorumlulari.map(ad=>(<option key={ad} value={ad}>{ad}</option>))}</select></div>)}
-          {girisTipi === 'admin' && (<div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Adınızı seçin:</label><select value={seciliKullanici} onChange={e=>setSeciliKullanici(e.target.value)} style={{marginBottom:'12px'}}><option value="">-- Admin seçin --</option>{KULLANICILAR.adminler.map(a=>(<option key={a.ad} value={a.ad}>{a.ad}</option>))}</select><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Şifre:</label><input type="password" placeholder="Şifrenizi girin" value={sifre} onChange={e=>setSifre(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()} style={{marginBottom:'16px'}}/></div>)}
-          {girisTipi === 'moderator' && (<div><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Adınızı seçin:</label><select value={seciliKullanici} onChange={e=>setSeciliKullanici(e.target.value)} style={{marginBottom:'12px'}}><option value="">-- Moderatör seçin --</option>{KULLANICILAR.moderatorler.map(m=>(<option key={m.ad} value={m.ad}>{m.ad}</option>))}</select><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>Şifre:</label><input type="password" placeholder="Şifrenizi girin" value={sifre} onChange={e=>setSifre(e.target.value)} onKeyDown={e=>e.key==='Enter'&&girisYap()} style={{marginBottom:'16px'}}/></div>)}
-          {girisHatasi && (<div style={{background:'rgba(233,69,96,0.2)',border:'1px solid rgba(233,69,96,0.4)',borderRadius:'8px',padding:'10px',marginBottom:'16px',color:'#ff6b6b',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>)}
-          <button className="btn" onClick={girisYap}>Giriş Yap</button>
+          {girisHatasi && (<div style={{background:'rgba(233,69,96,0.2)',border:'1px solid rgba(233,69,96,0.4)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#ff6b6b',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>)}
+          <button className="btn" onClick={girisYap} disabled={girisLoading} style={{marginTop:'16px'}}>{girisLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}</button>
         </div>
       </div>
     );
@@ -235,7 +218,7 @@ export default function SecimTakipSistemi() {
       <div style={{maxWidth:'700px',margin:'0 auto',padding:'14px'}}>
         {genelIstatistik && (<div className="card" style={{padding:'16px',marginBottom:'14px',background:'rgba(255,193,7,0.05)',borderColor:'rgba(255,193,7,0.2)'}}><div style={{color:'#ffc107',fontWeight:600,marginBottom:'10px',fontSize:'0.9rem'}}>📊 Genel Durum (Anlık)</div><div style={{display:'flex',justifyContent:'space-around',textAlign:'center'}}><div><div style={{color:'#00d9ff',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.toplam}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Toplam</div></div><div><div style={{color:'#00c853',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Geldi</div></div><div><div style={{color:'#e94560',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelmeyen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Beklenen</div></div><div><div style={{color:'#ffc107',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>%{genelIstatistik.toplam?Math.round(genelIstatistik.gelen/genelIstatistik.toplam*100):0}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Oran</div></div></div></div>)}
 
-        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>📋 Referans Sorumlusu Filtrele</label><select value={seciliGoruntuRol} onChange={e=>setSeciliGoruntuRol(e.target.value)}><option value="">-- Tüm Referanslar --</option>{SECIM_DATA.roller.map(r=>(<option key={r.ad} value={r.ad}>{r.ad} ({r.referans_sayisi} kişi) - %{referansAramaOranlari[r.ad]?.oran || 0} arandı</option>))}</select></div>)}
+        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>📋 Referans Sorumlusu Filtrele</label><select value={seciliGoruntuRol} onChange={e=>setSeciliGoruntuRol(e.target.value)}><option value="">-- Tüm Referanslar --</option>{SECIM_DATA.roller.map(r=>(<option key={r.ad} value={r.ad}>{r.ad} ({r.referans_sayisi} kişi) - {referansAramaOranlari[r.ad]?.gelen || 0}/{referansAramaOranlari[r.ad]?.toplam || 0} arandı</option>))}</select></div>)}
 
         {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={()=>setHavuzListeGoster(!havuzListeGoster)}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span style={{color:'#e94560',fontWeight:600,fontSize:'0.9rem'}}>🏊 Havuz Liste</span><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>(Aranmayan kişiler - referans bazlı)</span></div><span style={{color:'rgba(255,255,255,0.5)',fontSize:'1.2rem'}}>{havuzListeGoster?'▲':'▼'}</span></div>{havuzListeGoster && (<div style={{marginTop:'14px'}}>{havuzListe.map(([refAd, kisiler]) => (<div key={refAd} style={{marginBottom:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',padding:'8px 12px',background:'rgba(233,69,96,0.1)',borderRadius:'8px',border:'1px solid rgba(233,69,96,0.2)'}}><span style={{color:'#ff6b6b',fontWeight:600,fontSize:'0.9rem'}}>{refAd}</span><span style={{color:'#e94560',fontSize:'0.8rem',fontWeight:600}}>{kisiler.length} kişi aranmadı</span></div>{kisiler.map(k=>(<div key={k.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',marginBottom:'4px',background:'rgba(255,255,255,0.02)',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.05)'}}><div style={{flex:1,minWidth:0}}><div style={{color:'#fff',fontWeight:500,fontSize:'0.85rem'}}>{k.ad}</div><div style={{color:'rgba(255,255,255,0.4)',fontSize:'0.75rem'}}>#{k.sicil} • {k.telefon!=='Telefon Yok'?k.telefon:'📵 Tel yok'}</div></div>{k.telefon!=='Telefon Yok'?(<a href={`tel:${k.telefon}`} className="btn-call" style={{fontSize:'0.75rem',padding:'5px 10px'}}>📞 Ara</a>):(<span className="btn-call disabled" style={{fontSize:'0.75rem',padding:'5px 10px'}}>Tel Yok</span>)}</div>))}</div>))}{havuzListe.length===0&&(<div style={{textAlign:'center',padding:'20px',color:'rgba(255,255,255,0.5)'}}>Tüm kişiler aranmış! 🎉</div>)}</div>)}</div>)}
 
