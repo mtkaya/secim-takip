@@ -28,6 +28,7 @@ export default function SecimTakipSistemi() {
   const [sifre, setSifre] = useState('');
   const [girisHatasi, setGirisHatasi] = useState('');
   const [girisTipi, setGirisTipi] = useState('');
+  const [girisAdi, setGirisAdi] = useState('');
   const [seciliKullanici, setSeciliKullanici] = useState('');
   const [seciliSandik, setSeciliSandik] = useState('');
   const [geldiData, setGeldiData] = useState({});
@@ -151,21 +152,26 @@ export default function SecimTakipSistemi() {
   }, [aktifListe, geldiData, gelemezData]);
 
   const girisYap = () => {
-    if (!girisTipi) { setGirisHatasi('Lütfen kullanıcı seçin'); return; }
-    const kullanici = KULLANICILAR.find(k => k.ad === girisTipi);
+    if (!girisTipi) { setGirisHatasi('Lütfen rol seçin'); return; }
+    const girilenAd = girisAdi.trim().toUpperCase();
+    if (!girilenAd) { setGirisHatasi('Lütfen adınızı girin'); return; }
+    // Türkçe karakter duyarsız isim eşleştirme
+    const kullanici = KULLANICILAR.find(k => k.ad === girilenAd || turkceNormalize(k.ad) === turkceNormalize(girilenAd));
     if (!kullanici) { setGirisHatasi('Kullanıcı bulunamadı'); return; }
+    if (kullanici.rol !== girisTipi) { setGirisHatasi('Seçtiğiniz rol ile kullanıcı rolü uyuşmuyor'); return; }
     if (sifre !== kullanici.sifre) { setGirisHatasi('Şifre hatalı'); return; }
     setKullaniciAdi(kullanici.ad);
     setKullaniciRolu(kullanici.rol);
     setGirisYapildi(true);
     setGirisHatasi('');
     setSifre('');
+    setGirisAdi('');
     localStorage.setItem('secim_oturum', JSON.stringify({ ad: kullanici.ad, rol: kullanici.rol }));
   };
 
   const cikisYap = () => {
     setGirisYapildi(false); setKullaniciAdi(''); setKullaniciRolu('');
-    setSeciliKullanici(''); setSeciliSandik(''); setSifre(''); setGirisTipi('');
+    setSeciliKullanici(''); setSeciliSandik(''); setSifre(''); setGirisTipi(''); setGirisAdi('');
     localStorage.removeItem('secim_oturum');
   };
 
@@ -198,9 +204,6 @@ export default function SecimTakipSistemi() {
 
   // -- GİRİŞ EKRANI --
   if (!girisYapildi) {
-    const adminler = KULLANICILAR.filter(k => ['superadmin', 'admin'].includes(k.rol));
-    const moderatorler = KULLANICILAR.filter(k => k.rol === 'moderator');
-    const referanslar = KULLANICILAR.filter(k => k.rol === 'referans');
     return (
       <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f0f2f5 0%,#e8edf2 50%,#dce3ea 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',fontFamily:'system-ui,-apple-system,sans-serif'}}>
         <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:'16px',padding:'32px',maxWidth:'380px',width:'100%',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
@@ -212,12 +215,14 @@ export default function SecimTakipSistemi() {
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
             <select value={girisTipi} onChange={e => { setGirisTipi(e.target.value); setGirisHatasi(''); }}>
-              <option value="">-- Kullanıcı Seçin --</option>
-              <optgroup label="👑 Yönetim">{adminler.map(k => <option key={k.ad} value={k.ad}>{k.ad}</option>)}</optgroup>
-              <optgroup label="🛡️ Moderatörler">{moderatorler.map(k => <option key={k.ad} value={k.ad}>{k.ad}</option>)}</optgroup>
-              <optgroup label="👤 Referans Sorumluları">{referanslar.map(k => <option key={k.ad} value={k.ad}>{k.ad}</option>)}</optgroup>
+              <option value="">-- Rol Seçin --</option>
+              <option value="superadmin">🔑 Süper Admin</option>
+              <option value="admin">⚙️ Admin</option>
+              <option value="moderator">🛡️ Moderatör</option>
+              <option value="referans">👤 Referans Sorumlusu</option>
             </select>
-            <input type="password" placeholder="Şifre" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && girisYap()} />
+            <input type="text" placeholder="Ad Soyad" value={girisAdi} onChange={e => { setGirisAdi(e.target.value.toUpperCase()); setGirisHatasi(''); }} style={{textTransform:'uppercase'}} />
+            <input type="password" placeholder="Şifre (telefon son 6 hane)" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && girisYap()} />
           </div>
           {girisHatasi && <div style={{background:'rgba(233,69,96,0.1)',border:'1px solid rgba(233,69,96,0.3)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#e94560',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
           <button className="btn-login" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>

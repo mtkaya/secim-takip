@@ -146,25 +146,39 @@ const modIsimlerRaw = [
 ];
 const modIsimler = [...new Set(modIsimlerRaw)];
 
+// Telefon numarasından şifre üret (son 6 hane)
+function telefonSifre(ad) {
+  // Kişi listesinde bu adı bul
+  const kisi = kisiler.find(k => k.ad === ad);
+  if (kisi && kisi.tel) {
+    const rakamlar = kisi.tel.replace(/\D/g, '');
+    if (rakamlar.length >= 6) {
+      return rakamlar.slice(-6);
+    }
+  }
+  // Telefon bulunamazsa varsayılan
+  return '123456';
+}
+
 // KULLANICILAR listesi
 const kullanicilar = [
-  { ad: 'SÜPER ADMİN', sifre: '1234', rol: 'superadmin' },
+  { ad: 'MEHMET TUGRUL KAYA', sifre: '123456', rol: 'superadmin' },
 ];
 
 // Admin kullanıcıları
 adminIsimler.forEach(ad => {
-  kullanicilar.push({ ad, sifre: '1234', rol: 'admin' });
+  kullanicilar.push({ ad, sifre: telefonSifre(ad), rol: 'admin' });
 });
 
 // Özel moderatör kullanıcıları
 ['SANDIKLAR', 'REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].forEach(ad => {
-  kullanicilar.push({ ad, sifre: '1234', rol: 'moderator' });
+  kullanicilar.push({ ad, sifre: '123456', rol: 'moderator' });
 });
 
 // Moderatörler (admin olmayanlar)
 modIsimler.forEach(ad => {
   if (!adminIsimler.includes(ad)) {
-    kullanicilar.push({ ad, sifre: '1234', rol: 'moderator' });
+    kullanicilar.push({ ad, sifre: telefonSifre(ad), rol: 'moderator' });
   }
 });
 
@@ -173,7 +187,7 @@ referansSorumlulari.forEach(r => {
   const isAdmin = adminIsimler.includes(r);
   const isMod = modIsimler.includes(r);
   if (!isAdmin && !isMod) {
-    kullanicilar.push({ ad: r, sifre: '1234', rol: 'referans' });
+    kullanicilar.push({ ad: r, sifre: telefonSifre(r), rol: 'referans' });
   }
 });
 
@@ -203,5 +217,10 @@ console.log('\nReferans sorumlulari:');
 roller.forEach(r => console.log('  ' + r.ad + ': ' + r.referans_sayisi + ' kişi'));
 console.log('\nSandıklar:');
 sandikRoller.forEach(s => console.log('  ' + s.ad + ': ' + s.referans_sayisi + ' kişi'));
+console.log('\nKullanıcı şifreleri (telefon son 6 hane):');
+kullanicilar.forEach(k => {
+  const varsayilan = k.sifre === '123456' ? ' ⚠️ VARSAYILAN' : '';
+  console.log('  ' + k.ad + ' [' + k.rol + ']: ' + k.sifre + varsayilan);
+});
 console.log('\ndata.js dosyası oluşturuldu!');
 console.log('Dosya boyutu:', (output.length / 1024).toFixed(1) + ' KB');
