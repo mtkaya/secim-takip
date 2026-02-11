@@ -377,6 +377,40 @@ export default function SecimTakipSistemi() {
               <optgroup label="👤 Referans Sorumluları">{dropdownSecenekler.filter(s => s.grup === 'referans').map(s => <option key={s.ad} value={s.ad}>{s.label}</option>)}</optgroup>
               <optgroup label="📦 Sandıklar">{dropdownSecenekler.filter(s => s.grup === 'sandik').map(s => <option key={s.ad} value={s.ad}>{s.label}</option>)}</optgroup>
             </select>
+            {(() => {
+              if (!seciliKullanici || !seciliKullanici.startsWith('SANDIK ')) return null;
+              const so = sandikOranlari.find(s => s.ad === seciliKullanici);
+              if (!so) return null;
+              const bekleyen = so.toplam - so.geldi - so.gelemez;
+              const r = 40, cx = 50, cy = 50, c = 2 * Math.PI * r;
+              const pGeldi = so.toplam > 0 ? so.geldi / so.toplam : 0;
+              const pGelemez = so.toplam > 0 ? so.gelemez / so.toplam : 0;
+              const pBekleyen = so.toplam > 0 ? bekleyen / so.toplam : 0;
+              const oGeldi = 0;
+              const oGelemez = pGeldi * c;
+              const oBekleyen = (pGeldi + pGelemez) * c;
+              return (
+                <div className="card" style={{padding:'16px',marginTop:'12px',display:'flex',alignItems:'center',gap:'20px'}}>
+                  <svg width="110" height="110" viewBox="0 0 100 100">
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e8e8e8" strokeWidth="16"/>
+                    {pBekleyen > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ffb74d" strokeWidth="16" strokeDasharray={`${pBekleyen*c} ${c}`} strokeDashoffset={-oBekleyen} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    {pGelemez > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ff5252" strokeWidth="16" strokeDasharray={`${pGelemez*c} ${c}`} strokeDashoffset={-oGelemez} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    {pGeldi > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#00c853" strokeWidth="16" strokeDasharray={`${pGeldi*c} ${c}`} strokeDashoffset={-oGeldi} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    <text x={cx} y={cy-4} textAnchor="middle" fontSize="18" fontWeight="800" fill="#333">%{so.yuzde}</text>
+                    <text x={cx} y={cy+10} textAnchor="middle" fontSize="8" fill="#999">oy kullandı</text>
+                  </svg>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,color:'#333',fontSize:'0.95rem',marginBottom:'10px'}}>{so.ad}</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}><div style={{width:12,height:12,borderRadius:3,background:'#00c853'}}/><span style={{color:'#333',fontSize:'0.85rem'}}>Geldi: <b>{so.geldi}</b></span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}><div style={{width:12,height:12,borderRadius:3,background:'#ff5252'}}/><span style={{color:'#333',fontSize:'0.85rem'}}>Gelemez: <b>{so.gelemez}</b></span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}><div style={{width:12,height:12,borderRadius:3,background:'#ffb74d'}}/><span style={{color:'#333',fontSize:'0.85rem'}}>Bekleyen: <b>{bekleyen}</b></span></div>
+                      <div style={{color:'#999',fontSize:'0.8rem',marginTop:'4px'}}>Toplam: {so.toplam} kişi</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -386,6 +420,48 @@ export default function SecimTakipSistemi() {
               <option value="">-- Sandık Seçin --</option>
               {sandikOranlari.map(s => <option key={s.ad} value={s.ad}>{s.ad} ({s.geldi}/{s.toplam} oy kullandı %{s.yuzde})</option>)}
             </select>
+            {(() => {
+              const so = sandikOranlari.find(s => s.ad === seciliSandik);
+              if (!so) return null;
+              const bekleyen = so.toplam - so.geldi - so.gelemez;
+              const r = 40, cx = 50, cy = 50, c = 2 * Math.PI * r;
+              const pGeldi = so.toplam > 0 ? so.geldi / so.toplam : 0;
+              const pGelemez = so.toplam > 0 ? so.gelemez / so.toplam : 0;
+              const pBekleyen = so.toplam > 0 ? bekleyen / so.toplam : 0;
+              const oGeldi = 0;
+              const oGelemez = pGeldi * c;
+              const oBekleyen = (pGeldi + pGelemez) * c;
+              return (
+                <div className="card" style={{padding:'16px',marginTop:'12px',display:'flex',alignItems:'center',gap:'20px'}}>
+                  <svg width="110" height="110" viewBox="0 0 100 100">
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e8e8e8" strokeWidth="16"/>
+                    {pBekleyen > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ffb74d" strokeWidth="16" strokeDasharray={`${pBekleyen*c} ${c}`} strokeDashoffset={-oBekleyen} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    {pGelemez > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ff5252" strokeWidth="16" strokeDasharray={`${pGelemez*c} ${c}`} strokeDashoffset={-oGelemez} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    {pGeldi > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="#00c853" strokeWidth="16" strokeDasharray={`${pGeldi*c} ${c}`} strokeDashoffset={-oGeldi} transform={`rotate(-90 ${cx} ${cy})`} style={{transition:'all 0.5s'}}/>}
+                    <text x={cx} y={cy-4} textAnchor="middle" fontSize="18" fontWeight="800" fill="#333">%{so.yuzde}</text>
+                    <text x={cx} y={cy+10} textAnchor="middle" fontSize="8" fill="#999">oy kullandı</text>
+                  </svg>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,color:'#333',fontSize:'0.95rem',marginBottom:'10px'}}>{so.ad}</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <div style={{width:12,height:12,borderRadius:3,background:'#00c853'}}/>
+                        <span style={{color:'#333',fontSize:'0.85rem'}}>Geldi: <b>{so.geldi}</b></span>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <div style={{width:12,height:12,borderRadius:3,background:'#ff5252'}}/>
+                        <span style={{color:'#333',fontSize:'0.85rem'}}>Gelemez: <b>{so.gelemez}</b></span>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <div style={{width:12,height:12,borderRadius:3,background:'#ffb74d'}}/>
+                        <span style={{color:'#333',fontSize:'0.85rem'}}>Bekleyen: <b>{bekleyen}</b></span>
+                      </div>
+                      <div style={{color:'#999',fontSize:'0.8rem',marginTop:'4px'}}>Toplam: {so.toplam} kişi</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
