@@ -6,6 +6,16 @@ import { SECIM_DATA } from './data';
 
 const KULLANICILAR = SECIM_DATA.kullanicilar;
 
+// Türkçe karakter duyarsız arama
+function turkceNormalize(str) {
+  return str
+    .replace(/İ/g, 'i').replace(/I/g, 'ı')
+    .replace(/Ğ/g, 'ğ').replace(/Ü/g, 'ü')
+    .replace(/Ş/g, 'ş').replace(/Ö/g, 'ö')
+    .replace(/Ç/g, 'ç')
+    .toLowerCase();
+}
+
 const Logo = ({ size = "normal" }) => {
   const s = size === "large" ? 48 : 32;
   return (<svg width={s} height={s} viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#e94560"/><stop offset="1" stopColor="#ff6b6b"/></linearGradient></defs><text x="50" y="52" textAnchor="middle" dominantBaseline="central" fontSize="40" fontWeight="bold" fill="#fff">ST</text></svg>);
@@ -21,17 +31,18 @@ export default function SecimTakipSistemi() {
   const [seciliKullanici, setSeciliKullanici] = useState('');
   const [seciliSandik, setSeciliSandik] = useState('');
   const [geldiData, setGeldiData] = useState({});
+  const [gelemezData, setGelemezData] = useState({});
   const [aramaMetni, setAramaMetni] = useState('');
   const [filtre, setFiltre] = useState('hepsi');
   const [sifirlaCOnay, setSifirlaOnay] = useState(false);
-  const [havuzListeGoster, setHavuzListeGoster] = useState(false);
+  const [raporGoster, setRaporGoster] = useState(false);
 
   useEffect(() => {
     const geldiRef = ref(database, 'geldi');
-    const unsubscribe = onValue(geldiRef, (snapshot) => {
-      setGeldiData(snapshot.val() || {});
-    });
-    return () => unsubscribe();
+    const unsub1 = onValue(geldiRef, (snapshot) => { setGeldiData(snapshot.val() || {}); });
+    const gelemezRef = ref(database, 'gelemez');
+    const unsub2 = onValue(gelemezRef, (snapshot) => { setGelemezData(snapshot.val() || {}); });
+    return () => { unsub1(); unsub2(); };
   }, []);
 
   useEffect(() => {
@@ -46,6 +57,8 @@ export default function SecimTakipSistemi() {
     }
   }, []);
 
+  const makeKey = (kisi) => (kisi.ad + '_' + (kisi.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
+
   const aktifListe = useMemo(() => {
     if (!kullaniciAdi) return [];
     if (kullaniciAdi === 'SANDIKLAR') {
@@ -58,6 +71,21 @@ export default function SecimTakipSistemi() {
     if (kullaniciAdi === 'ÇAKIŞANLAR') return SECIM_DATA.cakisanlar.kisiler;
     if (['superadmin', 'admin', 'moderator'].includes(kullaniciRolu)) {
       if (!seciliKullanici) return [];
+      if (seciliKullanici === 'TÜM LİSTE') {
+        const tumKisiler = [];
+        const gorulenSicil = new Set();
+        SECIM_DATA.roller.forEach(r => {
+          r.kisiler.forEach(k => {
+            const sid = k.sicil || k.ad;
+            if (!gorulenSicil.has(sid)) { gorulenSicil.add(sid); tumKisiler.push(k); }
+          });
+        });
+        SECIM_DATA.referanssiz.kisiler.forEach(k => {
+          const sid = k.sicil || k.ad;
+          if (!gorulenSicil.has(sid)) { gorulenSicil.add(sid); tumKisiler.push(k); }
+        });
+        return tumKisiler;
+      }
       if (seciliKullanici.startsWith('SANDIK ')) {
         const sandik = SECIM_DATA.sandiklar.find(s => s.ad === seciliKullanici);
         return sandik ? sandik.kisiler : [];
@@ -74,52 +102,53 @@ export default function SecimTakipSistemi() {
 
   const referansAramaOranlari = useMemo(() => {
     return SECIM_DATA.roller.map(r => {
-      const aranan = r.kisiler.filter(k => {
-        const key = (k.ad + '_' + (k.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
-        return geldiData[key];
-      }).length;
-      return { ad: r.ad, toplam: r.referans_sayisi, aranan };
+      const aranan = r.kisiler.filter(k => geldiData[makeKey(k)]).length;
+      const gelemez = r.kisiler.filter(k => gelemezData[makeKey(k)]).length;
+      return { ad: r.ad, toplam: r.referans_sayisi, aranan, gelemez };
     });
-  }, [geldiData]);
+  }, [geldiData, gelemezData]);
 
-  const havuzListe = useMemo(() => {
+  // Kendi referans oranı (herkes için)
+  const kendiOran = useMemo(() => {
+    const rol = SECIM_DATA.roller.find(r => r.ad === kullaniciAdi);
+    if (!rol) return null;
+    const aranan = rol.kisiler.filter(k => geldiData[makeKey(k)]).length;
+    const gelemez = rol.kisiler.filter(k => gelemezData[makeKey(k)]).length;
+    return { toplam: rol.referans_sayisi, aranan, gelemez, yuzde: rol.referans_sayisi > 0 ? Math.round(aranan / rol.referans_sayisi * 100) : 0 };
+  }, [kullaniciAdi, geldiData, gelemezData]);
+
+  // Rapor (sadece admin)
+  const raporData = useMemo(() => {
     return SECIM_DATA.roller.map(r => {
-      const aranmayanlar = r.kisiler.filter(k => {
-        const key = (k.ad + '_' + (k.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
-        return !geldiData[key];
-      });
-      return { ad: r.ad, aranmayanlar };
-    }).filter(r => r.aranmayanlar.length > 0);
-  }, [geldiData]);
+      const aranan = r.kisiler.filter(k => geldiData[makeKey(k)]).length;
+      const gelemez = r.kisiler.filter(k => gelemezData[makeKey(k)]).length;
+      const aranmayanlar = r.kisiler.filter(k => !geldiData[makeKey(k)] && !gelemezData[makeKey(k)]);
+      return { ad: r.ad, toplam: r.referans_sayisi, aranan, gelemez, aranmayanSayisi: aranmayanlar.length, aranmayanlar };
+    });
+  }, [geldiData, gelemezData]);
 
   const filtrelenmisListe = useMemo(() => {
     let liste = aktifListe;
     if (aramaMetni) {
-      const aranan = aramaMetni.toUpperCase();
-      liste = liste.filter(k => k.ad.toUpperCase().includes(aranan) || (k.tel && k.tel.includes(aramaMetni)));
+      const aranan = turkceNormalize(aramaMetni);
+      liste = liste.filter(k => turkceNormalize(k.ad).includes(aranan) || (k.tel && k.tel.includes(aramaMetni)));
     }
-    if (filtre === 'aranan') {
-      liste = liste.filter(k => {
-        const key = (k.ad + '_' + (k.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
-        return geldiData[key];
-      });
+    if (filtre === 'geldi') {
+      liste = liste.filter(k => geldiData[makeKey(k)]);
     } else if (filtre === 'aranmayan') {
-      liste = liste.filter(k => {
-        const key = (k.ad + '_' + (k.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
-        return !geldiData[key];
-      });
+      liste = liste.filter(k => !geldiData[makeKey(k)] && !gelemezData[makeKey(k)]);
+    } else if (filtre === 'gelemez') {
+      liste = liste.filter(k => gelemezData[makeKey(k)]);
     }
     return liste;
-  }, [aktifListe, aramaMetni, filtre, geldiData]);
+  }, [aktifListe, aramaMetni, filtre, geldiData, gelemezData]);
 
   const istatistikler = useMemo(() => {
     const toplam = aktifListe.length;
-    const aranan = aktifListe.filter(k => {
-      const key = (k.ad + '_' + (k.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
-      return geldiData[key];
-    }).length;
-    return { toplam, aranan, aranmayan: toplam - aranan };
-  }, [aktifListe, geldiData]);
+    const geldi = aktifListe.filter(k => geldiData[makeKey(k)]).length;
+    const gelemez = aktifListe.filter(k => gelemezData[makeKey(k)]).length;
+    return { toplam, geldi, gelemez, bekleyen: toplam - geldi - gelemez };
+  }, [aktifListe, geldiData, gelemezData]);
 
   const girisYap = () => {
     if (!girisTipi) { setGirisHatasi('Lütfen kullanıcı seçin'); return; }
@@ -135,43 +164,50 @@ export default function SecimTakipSistemi() {
   };
 
   const cikisYap = () => {
-    setGirisYapildi(false);
-    setKullaniciAdi('');
-    setKullaniciRolu('');
-    setSeciliKullanici('');
-    setSeciliSandik('');
-    setSifre('');
-    setGirisTipi('');
+    setGirisYapildi(false); setKullaniciAdi(''); setKullaniciRolu('');
+    setSeciliKullanici(''); setSeciliSandik(''); setSifre(''); setGirisTipi('');
     localStorage.removeItem('secim_oturum');
   };
 
   const toggleGeldi = async (kisi) => {
-    const key = (kisi.ad + '_' + (kisi.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
-    const geldiRef = ref(database, 'geldi/' + key);
+    const key = makeKey(kisi);
     if (geldiData[key]) {
-      await remove(geldiRef);
+      await remove(ref(database, 'geldi/' + key));
     } else {
-      await set(geldiRef, { geldi: true, isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+      if (gelemezData[key]) await remove(ref(database, 'gelemez/' + key));
+      await set(ref(database, 'geldi/' + key), { geldi: true, isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
+    }
+  };
+
+  const toggleGelemez = async (kisi) => {
+    const key = makeKey(kisi);
+    if (gelemezData[key]) {
+      await remove(ref(database, 'gelemez/' + key));
+    } else {
+      if (geldiData[key]) await remove(ref(database, 'geldi/' + key));
+      await set(ref(database, 'gelemez/' + key), { isaretleyen: kullaniciAdi, saat: new Date().toLocaleTimeString('tr-TR') });
     }
   };
 
   const topluSifirla = async () => {
     if (kullaniciRolu !== 'superadmin') return;
     await remove(ref(database, 'geldi'));
+    await remove(ref(database, 'gelemez'));
     setSifirlaOnay(false);
   };
 
+  // -- GİRİŞ EKRANI --
   if (!girisYapildi) {
     const adminler = KULLANICILAR.filter(k => ['superadmin', 'admin'].includes(k.rol));
     const moderatorler = KULLANICILAR.filter(k => k.rol === 'moderator');
     const referanslar = KULLANICILAR.filter(k => k.rol === 'referans');
     return (
-      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',fontFamily:'system-ui,-apple-system,sans-serif'}}>
-        <div className="card" style={{padding:'32px',maxWidth:'380px',width:'100%'}}>
-          <style>{`*{box-sizing:border-box}.card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px}.btn{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:10px 20px;border-radius:10px;font-weight:600;cursor:pointer;width:100%}.btn:active{transform:scale(0.98)}select,input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select option{background:#1a1a2e}`}</style>
+      <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f0f2f5 0%,#e8edf2 50%,#dce3ea 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',fontFamily:'system-ui,-apple-system,sans-serif'}}>
+        <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:'16px',padding:'32px',maxWidth:'380px',width:'100%',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
+          <style>{`*{box-sizing:border-box}select,input{background:#f8f9fa;border:1px solid #dee2e6;color:#333;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select option{background:#fff}select:focus,input:focus{border-color:#e94560}.btn-login{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;cursor:pointer;width:100%;font-size:1rem}.btn-login:active{transform:scale(0.98)}`}</style>
           <div style={{textAlign:'center',marginBottom:'24px'}}>
             <Logo size="large" />
-            <h2 style={{color:'rgba(255,255,255,0.9)',margin:'12px 0 8px',fontSize:'1.1rem',fontWeight:'500'}}>Hoş Geldiniz</h2>
+            <h2 style={{color:'#333',margin:'12px 0 8px',fontSize:'1.1rem',fontWeight:'500'}}>Hoş Geldiniz</h2>
             <p style={{color:'#e94560',margin:0,fontSize:'0.95rem',fontWeight:'600'}}>🗳️ Seçim Takip Asistanı</p>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
@@ -183,16 +219,21 @@ export default function SecimTakipSistemi() {
             </select>
             <input type="password" placeholder="Şifre" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && girisYap()} />
           </div>
-          {girisHatasi && <div style={{background:'rgba(233,69,96,0.2)',border:'1px solid rgba(233,69,96,0.4)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#ff6b6b',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
-          <button className="btn" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>
+          {girisHatasi && <div style={{background:'rgba(233,69,96,0.1)',border:'1px solid rgba(233,69,96,0.3)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#e94560',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
+          <button className="btn-login" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>
         </div>
       </div>
     );
   }
 
+  // -- ANA EKRAN --
   const dropdownSecenekler = (() => {
     const s = [];
-    referansAramaOranlari.forEach(r => { s.push({ ad: r.ad, label: r.ad + ' (' + r.toplam + ' kişi) - ' + r.aranan + '/' + r.toplam + ' arandı', grup: 'referans' }); });
+    s.push({ ad: 'TÜM LİSTE', label: 'TÜM LİSTE ('+SECIM_DATA.roller.reduce((a,r)=>a+r.referans_sayisi,0)+' + '+SECIM_DATA.referanssiz.referans_sayisi+' referanssız)', grup: 'ozel' });
+    referansAramaOranlari.forEach(r => {
+      const yuzde = r.toplam > 0 ? Math.round(r.aranan / r.toplam * 100) : 0;
+      s.push({ ad: r.ad, label: r.ad + ' (' + r.toplam + ') - ' + r.aranan + '/' + r.toplam + ' geldi %' + yuzde + (r.gelemez > 0 ? ' | ' + r.gelemez + ' gelemez' : ''), grup: 'referans' });
+    });
     SECIM_DATA.sandiklar.forEach(x => { s.push({ ad: x.ad, label: x.ad + ' (' + x.referans_sayisi + ' kişi)', grup: 'sandik' }); });
     s.push({ ad: 'REFERANSLI', label: 'REFERANSLI (' + SECIM_DATA.referansli.referans_sayisi + ' kişi)', grup: 'ozel' });
     s.push({ ad: 'REFERANSSIZ', label: 'REFERANSSIZ (' + SECIM_DATA.referanssiz.referans_sayisi + ' kişi)', grup: 'ozel' });
@@ -203,32 +244,48 @@ export default function SecimTakipSistemi() {
   const isSpecialUser = ['SANDIKLAR', 'REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].includes(kullaniciAdi);
   const showDropdown = ['superadmin', 'admin', 'moderator'].includes(kullaniciRolu) && !isSpecialUser;
   const showSandikDropdown = kullaniciAdi === 'SANDIKLAR';
+  const isAdmin = ['superadmin', 'admin'].includes(kullaniciRolu);
 
   return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)',fontFamily:'system-ui,-apple-system,sans-serif'}}>
-      <style>{`*{box-sizing:border-box}.card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px}.btn{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:10px 20px;border-radius:10px;font-weight:600;cursor:pointer}.btn:active{transform:scale(0.98)}.btn-call{background:linear-gradient(135deg,#00d9ff,#00b4d8);color:#1a1a2e;padding:8px 14px;border-radius:8px;font-weight:600;text-decoration:none;display:inline-block;border:none}.btn-call.disabled{background:#444;color:#888}.check{width:40px;height:40px;min-width:40px;border-radius:10px;border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer}.check.on{background:linear-gradient(135deg,#00c853,#00e676);border-color:#00c853}.stat{background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;text-align:center;border:1px solid rgba(255,255,255,0.08)}.stat b{font-size:1.8rem;font-family:monospace}.row{background:rgba(233,69,96,0.08);border:1px solid rgba(233,69,96,0.2);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}.row.on{background:rgba(0,200,83,0.1);border-color:rgba(0,200,83,0.3)}select,input{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:14px;border-radius:10px;font-size:1rem;width:100%;outline:none}select option{background:#1a1a2e}.fbtn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem}.fbtn.on{background:linear-gradient(135deg,#e94560,#ff6b6b);border-color:#e94560;color:#fff}.bar{height:10px;background:rgba(255,255,255,0.1);border-radius:5px;overflow:hidden}.bar div{height:100%;background:linear-gradient(90deg,#00c853,#00e676);border-radius:5px;transition:width 0.3s}.modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}.modal>div{background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;max-width:360px;text-align:center;width:100%}.badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:0.75rem;font-weight:600}.isaretleyen{background:rgba(0,200,83,0.2);color:#00e676;padding:2px 8px;border-radius:4px;font-size:0.7rem;margin-left:6px}`}</style>
+    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f0f2f5 0%,#e8edf2 50%,#dce3ea 100%)',fontFamily:'system-ui,-apple-system,sans-serif'}}>
+      <style>{`*{box-sizing:border-box}.card{background:#fff;border:1px solid #e0e0e0;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}.btn{background:linear-gradient(135deg,#e94560,#ff6b6b);border:none;color:#fff;padding:10px 20px;border-radius:10px;font-weight:600;cursor:pointer}.btn:active{transform:scale(0.98)}.btn-call{background:linear-gradient(135deg,#00b4d8,#0096c7);color:#fff;padding:6px 12px;border-radius:8px;font-weight:600;text-decoration:none;display:inline-block;border:none;font-size:0.8rem}.btn-call.disabled{background:#ccc;color:#999}.check{width:36px;height:36px;min-width:36px;border-radius:10px;border:2px solid #dee2e6;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.9rem;transition:all 0.2s}.check.geldi{background:linear-gradient(135deg,#00c853,#00e676);border-color:#00c853;color:#fff}.check.gelemez{background:linear-gradient(135deg,#ff5252,#ff1744);border-color:#ff5252;color:#fff}.stat{background:#fff;border-radius:12px;padding:14px;text-align:center;border:1px solid #e0e0e0}.stat b{font-size:1.6rem;font-family:monospace}.row{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;transition:all 0.2s}.row.geldi{background:#f0faf0;border-color:#a5d6a7}.row.gelemez{background:#fef0f0;border-color:#ffcdd2}select,input{background:#f8f9fa;border:1px solid #dee2e6;color:#333;padding:12px;border-radius:10px;font-size:0.95rem;width:100%;outline:none}select:focus,input:focus{border-color:#e94560}select option{background:#fff}.fbtn{background:#f8f9fa;border:1px solid #dee2e6;color:#666;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem}.fbtn.on{background:linear-gradient(135deg,#e94560,#ff6b6b);border-color:#e94560;color:#fff}.bar{height:10px;background:#e8e8e8;border-radius:5px;overflow:hidden}.bar div{height:100%;border-radius:5px;transition:width 0.3s}.modal{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}.modal>div{background:#fff;border:1px solid #e0e0e0;border-radius:16px;padding:24px;max-width:400px;text-align:center;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.15)}.badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:0.75rem;font-weight:600}.isaretleyen{background:rgba(0,200,83,0.15);color:#2e7d32;padding:2px 8px;border-radius:4px;font-size:0.7rem;margin-left:6px}.gelemez-badge{background:rgba(255,82,82,0.15);color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.7rem;margin-left:6px}`}</style>
 
-      <div style={{background:'rgba(0,0,0,0.3)',borderBottom:'1px solid rgba(255,255,255,0.08)',padding:'14px 16px',position:'sticky',top:0,zIndex:100,backdropFilter:'blur(20px)'}}>
+      {/* Header */}
+      <div style={{background:'#fff',borderBottom:'1px solid #e0e0e0',padding:'14px 16px',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
         <div style={{maxWidth:'700px',margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px'}}>
           <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
             <Logo />
             <div>
-              <div style={{color:'#fff',fontWeight:600,fontSize:'0.95rem'}}>{kullaniciAdi}</div>
-              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(255,0,0,0.2)':kullaniciRolu==='admin'?'rgba(255,193,7,0.2)':kullaniciRolu==='moderator'?'rgba(0,217,255,0.2)':'rgba(0,200,83,0.2)',color:kullaniciRolu==='superadmin'?'#ff4444':kullaniciRolu==='admin'?'#ffc107':kullaniciRolu==='moderator'?'#00d9ff':'#00c853'}}>{kullaniciRolu==='superadmin'?'🔑 Süper Admin':kullaniciRolu==='admin'?'⚙️ Admin':kullaniciRolu==='moderator'?'🛡️ Moderatör':'👤 Referans'}</span>
+              <div style={{color:'#333',fontWeight:600,fontSize:'0.95rem'}}>{kullaniciAdi}</div>
+              <span className="badge" style={{background:kullaniciRolu==='superadmin'?'rgba(156,39,176,0.15)':kullaniciRolu==='admin'?'rgba(255,152,0,0.15)':kullaniciRolu==='moderator'?'rgba(0,150,136,0.15)':'rgba(33,150,243,0.15)',color:kullaniciRolu==='superadmin'?'#7b1fa2':kullaniciRolu==='admin'?'#e65100':kullaniciRolu==='moderator'?'#00796b':'#1565c0'}}>{kullaniciRolu==='superadmin'?'🔑 Süper Admin':kullaniciRolu==='admin'?'⚙️ Admin':kullaniciRolu==='moderator'?'🛡️ Moderatör':'👤 Referans'}</span>
             </div>
           </div>
-          <button onClick={cikisYap} style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',color:'#fff',padding:'8px 14px',borderRadius:'8px',cursor:'pointer',fontSize:'0.85rem'}}>Çıkış</button>
+          <button onClick={cikisYap} style={{background:'#f8f9fa',border:'1px solid #dee2e6',color:'#666',padding:'8px 14px',borderRadius:'8px',cursor:'pointer',fontSize:'0.85rem'}}>Çıkış</button>
         </div>
       </div>
 
       <div style={{maxWidth:'700px',margin:'0 auto',padding:'16px'}}>
+
+        {/* Kendi referans oranı (herkes) */}
+        {kendiOran && !isSpecialUser && (
+          <div className="card" style={{padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{color:'#333',fontSize:'0.9rem',fontWeight:500}}>📊 Senin Referansların</div>
+            <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+              <span style={{color:'#2e7d32',fontWeight:700,fontSize:'1.1rem'}}>%{kendiOran.yuzde}</span>
+              <span style={{color:'#666',fontSize:'0.85rem'}}>{kendiOran.aranan}/{kendiOran.toplam} geldi</span>
+              {kendiOran.gelemez > 0 && <span style={{color:'#c62828',fontSize:'0.85rem'}}>{kendiOran.gelemez} gelemez</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Admin/Mod dropdown */}
         {showDropdown && (
           <div style={{marginBottom:'16px'}}>
             <select value={seciliKullanici} onChange={e => setSeciliKullanici(e.target.value)}>
               <option value="">-- Liste Seçin --</option>
+              <optgroup label="📋 Genel">{dropdownSecenekler.filter(s => s.grup === 'ozel').map(s => <option key={s.ad} value={s.ad}>{s.label}</option>)}</optgroup>
               <optgroup label="👤 Referans Sorumluları">{dropdownSecenekler.filter(s => s.grup === 'referans').map(s => <option key={s.ad} value={s.ad}>{s.label}</option>)}</optgroup>
               <optgroup label="📦 Sandıklar">{dropdownSecenekler.filter(s => s.grup === 'sandik').map(s => <option key={s.ad} value={s.ad}>{s.label}</option>)}</optgroup>
-              <optgroup label="📋 Özel Listeler">{dropdownSecenekler.filter(s => s.grup === 'ozel').map(s => <option key={s.ad} value={s.ad}>{s.label}</option>)}</optgroup>
             </select>
           </div>
         )}
@@ -242,83 +299,119 @@ export default function SecimTakipSistemi() {
           </div>
         )}
 
-        {['superadmin', 'admin', 'moderator'].includes(kullaniciRolu) && (
+        {/* Rapor butonu (sadece admin) + Sıfırla */}
+        {isAdmin && (
           <div style={{marginBottom:'16px',display:'flex',gap:'8px',flexWrap:'wrap'}}>
-            <button className={`fbtn ${havuzListeGoster ? 'on' : ''}`} onClick={() => setHavuzListeGoster(!havuzListeGoster)}>📋 Havuz Liste {havuzListeGoster ? '(Kapat)' : '(Aranmayanlar)'}</button>
-            {kullaniciRolu === 'superadmin' && (<button className="fbtn" style={{borderColor:'rgba(255,0,0,0.3)',color:'#ff6b6b'}} onClick={() => setSifirlaOnay(true)}>🗑️ Toplu Sıfırla</button>)}
+            <button className={`fbtn ${raporGoster ? 'on' : ''}`} onClick={() => setRaporGoster(!raporGoster)}>📊 Genel Rapor {raporGoster ? '(Kapat)' : ''}</button>
+            {kullaniciRolu === 'superadmin' && (<button className="fbtn" style={{borderColor:'rgba(255,0,0,0.3)',color:'#c62828'}} onClick={() => setSifirlaOnay(true)}>🗑️ Toplu Sıfırla</button>)}
           </div>
         )}
 
-        {havuzListeGoster && (
-          <div className="card" style={{padding:'16px',marginBottom:'16px',maxHeight:'400px',overflowY:'auto'}}>
-            <h3 style={{color:'#fff',margin:'0 0 12px',fontSize:'1rem'}}>📋 Havuz Liste - Aranmayanlar</h3>
-            {havuzListe.map(h => (
-              <div key={h.ad} style={{marginBottom:'12px'}}>
-                <div style={{color:'#e94560',fontWeight:600,fontSize:'0.9rem',marginBottom:'4px'}}>{h.ad} ({h.aranmayanlar.length} kişi aranmadı)</div>
-                <div style={{paddingLeft:'12px'}}>
-                  {h.aranmayanlar.slice(0, 5).map((k, i) => (<div key={i} style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>{k.ad} {k.tel && <span style={{color:'rgba(255,255,255,0.3)'}}>({k.tel})</span>}</div>))}
-                  {h.aranmayanlar.length > 5 && <div style={{color:'rgba(255,255,255,0.3)',fontSize:'0.75rem'}}>... ve {h.aranmayanlar.length - 5} kişi daha</div>}
+        {/* Genel Rapor (sadece admin) */}
+        {raporGoster && isAdmin && (
+          <div className="card" style={{padding:'16px',marginBottom:'16px',maxHeight:'500px',overflowY:'auto'}}>
+            <h3 style={{color:'#333',margin:'0 0 12px',fontSize:'1rem'}}>📊 Genel Rapor - Tüm Referans Sorumluları</h3>
+            {raporData.map(h => {
+              const yuzde = h.toplam > 0 ? Math.round(h.aranan / h.toplam * 100) : 0;
+              return (
+                <div key={h.ad} style={{marginBottom:'14px',padding:'10px',background:'#f8f9fa',borderRadius:'10px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                    <span style={{color:'#333',fontWeight:600,fontSize:'0.9rem'}}>{h.ad}</span>
+                    <span style={{fontSize:'0.8rem'}}>
+                      <span style={{color:'#2e7d32',fontWeight:700}}>%{yuzde}</span>
+                      <span style={{color:'#666',marginLeft:'8px'}}>{h.aranan}/{h.toplam} geldi</span>
+                      {h.gelemez > 0 && <span style={{color:'#c62828',marginLeft:'8px'}}>{h.gelemez} gelemez</span>}
+                      <span style={{color:'#e65100',marginLeft:'8px'}}>{h.aranmayanSayisi} bekleyen</span>
+                    </span>
+                  </div>
+                  <div className="bar"><div style={{width: yuzde + '%', background:'linear-gradient(90deg,#00c853,#00e676)'}}></div></div>
+                  {h.aranmayanSayisi > 0 && (
+                    <div style={{marginTop:'6px',paddingLeft:'8px'}}>
+                      {h.aranmayanlar.slice(0, 3).map((k, i) => (<div key={i} style={{color:'#999',fontSize:'0.75rem'}}>{k.ad} {k.tel && <span style={{color:'#bbb'}}>({k.tel})</span>}</div>))}
+                      {h.aranmayanSayisi > 3 && <div style={{color:'#bbb',fontSize:'0.7rem'}}>... ve {h.aranmayanSayisi - 3} kişi daha</div>}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
+        {/* İstatistikler */}
         {aktifListe.length > 0 && (
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'16px'}}>
-            <div className="stat"><b style={{color:'#fff'}}>{istatistikler.toplam}</b><br/><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>Toplam</span></div>
-            <div className="stat"><b style={{color:'#00e676'}}>{istatistikler.aranan}</b><br/><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>Aranan</span></div>
-            <div className="stat"><b style={{color:'#ff6b6b'}}>{istatistikler.aranmayan}</b><br/><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>Aranmayan</span></div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'16px'}}>
+            <div className="stat"><b style={{color:'#333'}}>{istatistikler.toplam}</b><br/><span style={{color:'#999',fontSize:'0.75rem'}}>Toplam</span></div>
+            <div className="stat"><b style={{color:'#2e7d32'}}>{istatistikler.geldi}</b><br/><span style={{color:'#999',fontSize:'0.75rem'}}>Geldi</span></div>
+            <div className="stat"><b style={{color:'#c62828'}}>{istatistikler.gelemez}</b><br/><span style={{color:'#999',fontSize:'0.75rem'}}>Gelemez</span></div>
+            <div className="stat"><b style={{color:'#e65100'}}>{istatistikler.bekleyen}</b><br/><span style={{color:'#999',fontSize:'0.75rem'}}>Bekleyen</span></div>
           </div>
         )}
 
+        {/* Progress bar */}
         {aktifListe.length > 0 && (
-          <div className="bar" style={{marginBottom:'16px'}}><div style={{width: (istatistikler.toplam > 0 ? (istatistikler.aranan / istatistikler.toplam * 100) : 0) + '%'}}></div></div>
+          <div className="bar" style={{marginBottom:'16px',display:'flex',overflow:'hidden'}}>
+            <div style={{width:(istatistikler.toplam>0?(istatistikler.geldi/istatistikler.toplam*100):0)+'%',background:'linear-gradient(90deg,#00c853,#00e676)',height:'10px'}}></div>
+            <div style={{width:(istatistikler.toplam>0?(istatistikler.gelemez/istatistikler.toplam*100):0)+'%',background:'linear-gradient(90deg,#ff5252,#ff1744)',height:'10px'}}></div>
+          </div>
         )}
 
+        {/* Arama ve filtre */}
         {aktifListe.length > 0 && (
           <div style={{marginBottom:'16px',display:'flex',flexDirection:'column',gap:'10px'}}>
             <input placeholder="🔍 İsim veya telefon ara..." value={aramaMetni} onChange={e => setAramaMetni(e.target.value)} />
-            <div style={{display:'flex',gap:'8px'}}>
-              {['hepsi', 'aranan', 'aranmayan'].map(f => (<button key={f} className={`fbtn ${filtre === f ? 'on' : ''}`} onClick={() => setFiltre(f)}>{f === 'hepsi' ? 'Hepsi' : f === 'aranan' ? '✅ Aranan' : '❌ Aranmayan'}</button>))}
+            <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+              {[['hepsi','Hepsi'],['geldi','✅ Geldi'],['gelemez','❌ Gelemez'],['aranmayan','⏳ Bekleyen']].map(([f,label]) => (<button key={f} className={`fbtn ${filtre === f ? 'on' : ''}`} onClick={() => setFiltre(f)}>{label}</button>))}
             </div>
           </div>
         )}
 
-        {aktifListe.length === 0 && !showSandikDropdown && !showDropdown && (<div style={{textAlign:'center',color:'rgba(255,255,255,0.4)',padding:'40px 0'}}>Listeniz bulunamadı</div>)}
-        {aktifListe.length === 0 && (showSandikDropdown || showDropdown) && (<div style={{textAlign:'center',color:'rgba(255,255,255,0.4)',padding:'40px 0'}}>Lütfen bir liste seçin</div>)}
+        {/* Boş durumlar */}
+        {aktifListe.length === 0 && !showSandikDropdown && !showDropdown && (<div style={{textAlign:'center',color:'#999',padding:'40px 0'}}>Listeniz bulunamadı</div>)}
+        {aktifListe.length === 0 && (showSandikDropdown || showDropdown) && (<div style={{textAlign:'center',color:'#999',padding:'40px 0'}}>Lütfen bir liste seçin</div>)}
 
-        <div style={{fontSize:'0.85rem',color:'rgba(255,255,255,0.4)',marginBottom:'8px'}}>{filtrelenmisListe.length > 0 && (filtrelenmisListe.length + ' kişi gösteriliyor')}</div>
+        <div style={{fontSize:'0.85rem',color:'#999',marginBottom:'8px'}}>{filtrelenmisListe.length > 0 && (filtrelenmisListe.length + ' kişi gösteriliyor')}</div>
 
+        {/* Kişi listesi */}
         {filtrelenmisListe.map((kisi, idx) => {
-          const key = (kisi.ad + '_' + (kisi.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
+          const key = makeKey(kisi);
           const geldi = geldiData[key];
+          const gelemez = gelemezData[key];
           const telLink = kisi.tel ? kisi.tel.replace(/\s/g, '') : '';
+          const rowClass = geldi ? 'row geldi' : gelemez ? 'row gelemez' : 'row';
           return (
-            <div key={key + '_' + idx} className={`row ${geldi ? 'on' : ''}`}>
-              <div className={`check ${geldi ? 'on' : ''}`} onClick={() => toggleGeldi(kisi)}>{geldi ? '✓' : ''}</div>
+            <div key={key + '_' + idx} className={rowClass}>
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <div className={`check ${geldi ? 'geldi' : ''}`} onClick={() => toggleGeldi(kisi)} title="Geldi">{geldi ? '✓' : '👍'}</div>
+                <div className={`check ${gelemez ? 'gelemez' : ''}`} onClick={() => toggleGelemez(kisi)} title="Gelemeyecek" style={{width:'36px',height:'28px',minWidth:'36px',fontSize:'0.75rem'}}>{gelemez ? '✗' : '👎'}</div>
+              </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{color:'#fff',fontWeight:500,fontSize:'0.95rem'}}>
+                <div style={{color:'#333',fontWeight:500,fontSize:'0.95rem'}}>
                   {kisi.ad}
-                  {kisi.sandik && <span style={{color:'rgba(255,255,255,0.3)',fontSize:'0.75rem',marginLeft:'6px'}}>S{kisi.sandik}</span>}
+                  {kisi.sandik && <span style={{color:'#aaa',fontSize:'0.75rem',marginLeft:'6px'}}>S{kisi.sandik}</span>}
                   {geldi && <span className="isaretleyen">{geldi.isaretleyen} - {geldi.saat}</span>}
+                  {gelemez && <span className="gelemez-badge">Gelemez - {gelemez.isaretleyen}</span>}
                 </div>
-                {kisi.referanslar && kisi.referanslar.length > 0 && (<div style={{color:'rgba(255,255,255,0.3)',fontSize:'0.7rem',marginTop:'2px'}}>Ref: {kisi.referanslar.join(', ')}</div>)}
-                {telLink && (<a href={'tel:' + telLink} className={`btn-call ${geldi ? 'disabled' : ''}`} style={{marginTop:'4px',fontSize:'0.8rem'}}>📞 {kisi.tel}</a>)}
+                {kisi.referanslar && kisi.referanslar.length > 0 && (
+                  <div style={{color:'#aaa',fontSize:'0.7rem',marginTop:'2px'}}>Ref: {kisi.referanslar.join(', ')}</div>
+                )}
+                {telLink && (
+                  <a href={'tel:' + telLink} className={`btn-call ${geldi || gelemez ? 'disabled' : ''}`} style={{marginTop:'4px'}}>📞 {kisi.tel}</a>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
+      {/* Sıfırlama modalı */}
       {sifirlaCOnay && (
         <div className="modal" onClick={() => setSifirlaOnay(false)}>
           <div onClick={e => e.stopPropagation()}>
-            <h3 style={{color:'#ff6b6b',margin:'0 0 12px'}}>⚠️ Toplu Sıfırlama</h3>
-            <p style={{color:'rgba(255,255,255,0.7)',fontSize:'0.9rem'}}>Tüm arama kayıtları silinecek. Emin misiniz?</p>
+            <h3 style={{color:'#c62828',margin:'0 0 12px'}}>⚠️ Toplu Sıfırlama</h3>
+            <p style={{color:'#666',fontSize:'0.9rem'}}>Tüm geldi ve gelemez kayıtları silinecek. Emin misiniz?</p>
             <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
-              <button className="btn" style={{background:'#444'}} onClick={() => setSifirlaOnay(false)}>İptal</button>
-              <button className="btn" onClick={topluSifirla}>Sıfırla</button>
+              <button className="btn" style={{background:'#999',flex:1}} onClick={() => setSifirlaOnay(false)}>İptal</button>
+              <button className="btn" style={{flex:1}} onClick={topluSifirla}>Sıfırla</button>
             </div>
           </div>
         </div>

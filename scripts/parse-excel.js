@@ -54,30 +54,27 @@ refNames.forEach(r => {
   referansSorumlulari.push(ad);
 });
 
-// ROLLER - her referans sorumlusunun kendi kişi listesi
+// ROLLER - her referans sorumlusunun kendi kişi listesi (tüm referans bilgisiyle)
 const roller = referansSorumlulari.map(refAd => {
   const refKisileri = kisiler.filter(k => k.referanslar.includes(refAd));
   return {
     ad: refAd,
     referans_sayisi: refKisileri.length,
-    kisiler: refKisileri.map(k => ({
-      ad: k.ad,
-      tel: k.tel,
-      sandik: k.sandikNo,
-      sicil: k.sicil
-    }))
+    kisiler: refKisileri.map(k => {
+      const entry = { ad: k.ad, tel: k.tel, sandik: k.sandikNo, sicil: k.sicil };
+      if (k.referanslar.length > 0) entry.referanslar = k.referanslar;
+      return entry;
+    })
   };
 });
 
-// SANDIKLAR - sandık bazlı tüm kişiler
+// SANDIKLAR - sandık bazlı tüm kişiler (referans bilgisi ile)
 const sandikMap = {};
 kisiler.forEach(k => {
   if (!sandikMap[k.sandikNo]) sandikMap[k.sandikNo] = [];
-  sandikMap[k.sandikNo].push({
-    ad: k.ad,
-    tel: k.tel,
-    sicil: k.sicil
-  });
+  const entry = { ad: k.ad, tel: k.tel, sicil: k.sicil };
+  if (k.referanslar.length > 0) entry.referanslar = k.referanslar;
+  sandikMap[k.sandikNo].push(entry);
 });
 const sandikRoller = Object.keys(sandikMap).sort((a, b) => a - b).map(no => ({
   ad: 'SANDIK ' + no,
@@ -126,19 +123,58 @@ const cakisanRol = {
   }))
 };
 
+// İsim eşleştirme haritası (kullanıcı listesindeki ad -> Excel'deki referans adı)
+const isimEslestirme = {
+  'M. MERT ACIYAN': 'M.MERT ACIYAN',
+  'MEHMET MERT ACIYAN': 'M.MERT ACIYAN',
+  'ABDULKADİR ÇELEPÇİ': 'ABDULKADİR CELEPÇİ',
+  'İBRAHİM TARIK ŞEN': 'İ.TARIK ŞEN',
+};
+
+// Admin listesi (referans listesindeki isimleriyle eşleştirilmiş)
+const adminIsimler = ['ERDEM NALTEKİN', 'MUSTAFA ZAHİD KAYMAZ', 'M.MERT ACIYAN', 'İSMAİL HAKKI GÖKŞEN'];
+
+// Moderatör listesi (unique, referans listesindeki isimleriyle)
+const modIsimlerRaw = [
+  'AHMET ÇETİNTAŞ', 'DURMUŞ KÜPELİ', 'ERDEM NALTEKİN', 'ALPARSLAN RECEP DEMİREL',
+  'ABDULKADİR CELEPÇİ', 'KAZIM SİNGİL', 'ÖMER BATUHAN DENİZ', 'M.MERT ACIYAN',
+  'TAHİR BEKDİK', 'İ.TARIK ŞEN', 'AHMET YAĞCI', 'BAHAR BAŞIBEYAZ',
+  'GÜLBEYAZ BÜYÜKAĞAÇCI', 'YİĞİTHAN YAZGAN', 'BURAK ATCI', 'HALİL İBRAHİM BABAYİĞİT',
+  'SEMİH BAŞARAN', 'MÜRSEL ADA', 'SENA ER', 'MUSTAFA KAYGISIZ',
+  'İBRAHİM TOSUNLU', 'MUSTAFA ZAHİD KAYMAZ', 'MEHMET AKİF TEKİN', 'ERBİL TELCİ',
+  'MELİH ÖZTÜRK', 'MUSTAFA TÜRKOĞLU', 'AHMET SEFA SELÇUK'
+];
+const modIsimler = [...new Set(modIsimlerRaw)];
+
 // KULLANICILAR listesi
 const kullanicilar = [
   { ad: 'SÜPER ADMİN', sifre: '1234', rol: 'superadmin' },
-  { ad: 'ADMİN', sifre: '1234', rol: 'admin' },
-  { ad: 'MODERATÖR', sifre: '1234', rol: 'moderator' },
-  { ad: 'SANDIKLAR', sifre: '1234', rol: 'moderator' },
-  { ad: 'REFERANSLI', sifre: '1234', rol: 'moderator' },
-  { ad: 'REFERANSSIZ', sifre: '1234', rol: 'moderator' },
-  { ad: 'ÇAKIŞANLAR', sifre: '1234', rol: 'moderator' },
 ];
-// Her referans sorumlusu da kullanıcı
+
+// Admin kullanıcıları
+adminIsimler.forEach(ad => {
+  kullanicilar.push({ ad, sifre: '1234', rol: 'admin' });
+});
+
+// Özel moderatör kullanıcıları
+['SANDIKLAR', 'REFERANSLI', 'REFERANSSIZ', 'ÇAKIŞANLAR'].forEach(ad => {
+  kullanicilar.push({ ad, sifre: '1234', rol: 'moderator' });
+});
+
+// Moderatörler (admin olmayanlar)
+modIsimler.forEach(ad => {
+  if (!adminIsimler.includes(ad)) {
+    kullanicilar.push({ ad, sifre: '1234', rol: 'moderator' });
+  }
+});
+
+// Kalan referans sorumluları (admin veya moderatör olmayanlar)
 referansSorumlulari.forEach(r => {
-  kullanicilar.push({ ad: r, sifre: '1234', rol: 'referans' });
+  const isAdmin = adminIsimler.includes(r);
+  const isMod = modIsimler.includes(r);
+  if (!isAdmin && !isMod) {
+    kullanicilar.push({ ad: r, sifre: '1234', rol: 'referans' });
+  }
 });
 
 // SECIM_DATA oluştur
