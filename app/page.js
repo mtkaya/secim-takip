@@ -48,6 +48,7 @@ export default function SecimTakipSistemi() {
   const [filtre, setFiltre] = useState('hepsi');
   const [sifirlaCOnay, setSifirlaOnay] = useState(false);
   const [raporGoster, setRaporGoster] = useState(false);
+  const [geriSayim, setGeriSayim] = useState({ gun: 0, saat: 0, dakika: 0, saniye: 0, bitti: false });
 
   useEffect(() => {
     const geldiRef = ref(database, 'geldi');
@@ -67,6 +68,24 @@ export default function SecimTakipSistemi() {
         setGirisYapildi(true);
       } catch(e) { localStorage.removeItem('secim_oturum'); }
     }
+  }, []);
+
+  useEffect(() => {
+    const hedef = new Date('2026-02-14T10:00:00+03:00').getTime();
+    const hesapla = () => {
+      const fark = hedef - Date.now();
+      if (fark <= 0) { setGeriSayim({ gun: 0, saat: 0, dakika: 0, saniye: 0, bitti: true }); return; }
+      setGeriSayim({
+        gun: Math.floor(fark / (1000 * 60 * 60 * 24)),
+        saat: Math.floor((fark % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        dakika: Math.floor((fark % (1000 * 60 * 60)) / (1000 * 60)),
+        saniye: Math.floor((fark % (1000 * 60)) / 1000),
+        bitti: false
+      });
+    };
+    hesapla();
+    const interval = setInterval(hesapla, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const makeKey = (kisi) => (kisi.ad + '_' + (kisi.sicil || '')).replace(/[.#$\/\[\]]/g, '_');
@@ -257,8 +276,27 @@ export default function SecimTakipSistemi() {
           )}
           {girisHatasi && <div style={{background:'rgba(233,69,96,0.1)',border:'1px solid rgba(233,69,96,0.3)',borderRadius:'8px',padding:'10px',marginTop:'12px',color:'#e94560',fontSize:'0.9rem',textAlign:'center'}}>{girisHatasi}</div>}
           {girisTipi && <button className="btn-login" onClick={girisYap} style={{marginTop:'16px'}}>Giriş Yap</button>}
-          {/* Şubat Yakın */}
-          <div style={{textAlign:'center',marginTop:'20px',color:'#bbb',fontSize:'0.8rem',fontStyle:'italic'}}>Şubat yakın...</div>
+          {/* Geri Sayım */}
+          <div style={{marginTop:'20px',textAlign:'center'}}>
+            <div style={{color:'#999',fontSize:'0.75rem',marginBottom:'8px',fontWeight:600}}>14 Şubat Saat 10:00</div>
+            {geriSayim.bitti ? (
+              <div style={{color:'#e94560',fontWeight:700,fontSize:'1rem'}}>SEÇİM BAŞLADI!</div>
+            ) : (
+              <div style={{display:'flex',justifyContent:'center',gap:'8px'}}>
+                {[
+                  { val: geriSayim.gun, label: 'GÜN' },
+                  { val: geriSayim.saat, label: 'SAAT' },
+                  { val: geriSayim.dakika, label: 'DAK' },
+                  { val: geriSayim.saniye, label: 'SAN' },
+                ].map(b => (
+                  <div key={b.label} style={{background:'#f8f9fa',border:'1px solid #e0e0e0',borderRadius:'10px',padding:'8px 10px',minWidth:'52px'}}>
+                    <div style={{fontSize:'1.2rem',fontWeight:800,color:'#e94560',fontFamily:'monospace'}}>{String(b.val).padStart(2,'0')}</div>
+                    <div style={{fontSize:'0.6rem',color:'#999',fontWeight:600,marginTop:'2px'}}>{b.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         {/* Footer */}
         <div style={{marginTop:'20px',textAlign:'center',fontSize:'0.75rem',color:'#aaa'}}>
