@@ -62,6 +62,7 @@ export default function SecimTakipSistemi() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [seciliGoruntuRol, setSeciliGoruntuRol] = useState('');
+  const [havuzListeGoster, setHavuzListeGoster] = useState(false);
 
   useEffect(() => {
     const geldiRef = ref(database, 'geldi');
@@ -158,6 +159,33 @@ export default function SecimTakipSistemi() {
     return { toplam: tumReferanslilar.length, gelen, gelmeyen: tumReferanslilar.length - gelen };
   }, [kullaniciRolu, geldiDurumu]);
 
+  const referansAramaOranlari = useMemo(() => {
+    const oranlar = {};
+    SECIM_DATA.roller.forEach(r => {
+      const kisiler = SECIM_DATA.kisiler.filter(k => k.referanslar.includes(r.ad));
+      const toplam = kisiler.length;
+      const gelen = kisiler.filter(k => geldiDurumu[k.id]?.geldi).length;
+      oranlar[r.ad] = { toplam, gelen, oran: toplam ? Math.round(gelen / toplam * 100) : 0 };
+    });
+    return oranlar;
+  }, [geldiDurumu]);
+
+
+  const havuzListe = useMemo(() => {
+    if (kullaniciRolu !== 'admin' && kullaniciRolu !== 'moderator') return [];
+    const aranmayanlar = SECIM_DATA.kisiler.filter(k => k.referanslar.length > 0 && !geldiDurumu[k.id]?.geldi);
+    const referansGruplari = {};
+    aranmayanlar.forEach(k => {
+      k.referanslar.forEach(ref => {
+        if (!referansGruplari[ref]) referansGruplari[ref] = [];
+        referansGruplari[ref].push(k);
+      });
+    });
+    const sirali = Object.entries(referansGruplari).sort((a, b) => b[1].length - a[1].length);
+    return sirali;
+  }, [kullaniciRolu, geldiDurumu]);
+
+
   if (loading) {
     return (<div style={{minHeight:'100vh',background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'20px'}}><Logo size="large" /><div style={{color:'rgba(255,255,255,0.6)',fontSize:'1rem'}}>Yükleniyor...</div></div>);
   }
@@ -207,7 +235,9 @@ export default function SecimTakipSistemi() {
       <div style={{maxWidth:'700px',margin:'0 auto',padding:'14px'}}>
         {genelIstatistik && (<div className="card" style={{padding:'16px',marginBottom:'14px',background:'rgba(255,193,7,0.05)',borderColor:'rgba(255,193,7,0.2)'}}><div style={{color:'#ffc107',fontWeight:600,marginBottom:'10px',fontSize:'0.9rem'}}>📊 Genel Durum (Anlık)</div><div style={{display:'flex',justifyContent:'space-around',textAlign:'center'}}><div><div style={{color:'#00d9ff',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.toplam}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Toplam</div></div><div><div style={{color:'#00c853',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Geldi</div></div><div><div style={{color:'#e94560',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>{genelIstatistik.gelmeyen}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Beklenen</div></div><div><div style={{color:'#ffc107',fontSize:'1.5rem',fontWeight:700,fontFamily:'monospace'}}>%{genelIstatistik.toplam?Math.round(genelIstatistik.gelen/genelIstatistik.toplam*100):0}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.75rem'}}>Oran</div></div></div></div>)}
 
-        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>📋 Referans Sorumlusu Filtrele</label><select value={seciliGoruntuRol} onChange={e=>setSeciliGoruntuRol(e.target.value)}><option value="">-- Tüm Referanslar --</option>{SECIM_DATA.roller.map(r=>(<option key={r.ad} value={r.ad}>{r.ad} ({r.referans_sayisi} kişi)</option>))}</select></div>)}
+        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><label style={{color:'rgba(255,255,255,0.6)',fontSize:'0.85rem',marginBottom:'6px',display:'block'}}>📋 Referans Sorumlusu Filtrele</label><select value={seciliGoruntuRol} onChange={e=>setSeciliGoruntuRol(e.target.value)}><option value="">-- Tüm Referanslar --</option>{SECIM_DATA.roller.map(r=>(<option key={r.ad} value={r.ad}>{r.ad} ({r.referans_sayisi} kişi) - %{referansAramaOranlari[r.ad]?.oran || 0} arandı</option>))}</select></div>)}
+
+        {(kullaniciRolu==='admin'||kullaniciRolu==='moderator') && (<div className="card" style={{padding:'16px',marginBottom:'14px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={()=>setHavuzListeGoster(!havuzListeGoster)}><div style={{display:'flex',alignItems:'center',gap:'8px'}}><span style={{color:'#e94560',fontWeight:600,fontSize:'0.9rem'}}>🏊 Havuz Liste</span><span style={{color:'rgba(255,255,255,0.5)',fontSize:'0.8rem'}}>(Aranmayan kişiler - referans bazlı)</span></div><span style={{color:'rgba(255,255,255,0.5)',fontSize:'1.2rem'}}>{havuzListeGoster?'▲':'▼'}</span></div>{havuzListeGoster && (<div style={{marginTop:'14px'}}>{havuzListe.map(([refAd, kisiler]) => (<div key={refAd} style={{marginBottom:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',padding:'8px 12px',background:'rgba(233,69,96,0.1)',borderRadius:'8px',border:'1px solid rgba(233,69,96,0.2)'}}><span style={{color:'#ff6b6b',fontWeight:600,fontSize:'0.9rem'}}>{refAd}</span><span style={{color:'#e94560',fontSize:'0.8rem',fontWeight:600}}>{kisiler.length} kişi aranmadı</span></div>{kisiler.map(k=>(<div key={k.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',marginBottom:'4px',background:'rgba(255,255,255,0.02)',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.05)'}}><div style={{flex:1,minWidth:0}}><div style={{color:'#fff',fontWeight:500,fontSize:'0.85rem'}}>{k.ad}</div><div style={{color:'rgba(255,255,255,0.4)',fontSize:'0.75rem'}}>#{k.sicil} • {k.telefon!=='Telefon Yok'?k.telefon:'📵 Tel yok'}</div></div>{k.telefon!=='Telefon Yok'?(<a href={`tel:${k.telefon}`} className="btn-call" style={{fontSize:'0.75rem',padding:'5px 10px'}}>📞 Ara</a>):(<span className="btn-call disabled" style={{fontSize:'0.75rem',padding:'5px 10px'}}>Tel Yok</span>)}</div>))}</div>))}{havuzListe.length===0&&(<div style={{textAlign:'center',padding:'20px',color:'rgba(255,255,255,0.5)'}}>Tüm kişiler aranmış! 🎉</div>)}</div>)}</div>)}
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'14px'}}>
           <div className="stat"><b style={{color:'#00d9ff'}}>{istatistikler.toplam}</b><div style={{color:'rgba(255,255,255,0.5)',fontSize:'0.7rem'}}>Toplam</div></div>
