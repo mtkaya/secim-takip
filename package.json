@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "firebase": "^10.7.0",
     "firebase-admin": "^13.6.1",
     "next": "14.0.4",
